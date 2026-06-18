@@ -1,5 +1,6 @@
 //contains all the schema for academic audit 2025-26 form
 import { useEffect, useMemo, useState } from "react";
+import universityLogo from "../../../assets/images/image.png";
 import AuditReportPanel from "./AuditReportPanel";
 import AuditSection from "./AuditSection";
 import { columnsWithSerial, serialColumnFor } from "./tableHelpers";
@@ -178,12 +179,15 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
   return (
     <form style={styles.form} onSubmit={(event) => event.preventDefault()}>
       <header style={styles.header}>
-        <div>
-          <p style={styles.kicker}>{schema.header.university}</p>
-          <h1 style={styles.title}>{schema.title}</h1>
-          <p style={styles.meta}>{schema.header.address}</p>
-          <p style={styles.meta}>{schema.header.act}</p>
-          <p style={styles.year}>Academic Year {schema.academicYear}</p>
+        <div style={styles.headerContent}>
+          <img src={universityLogo} alt="DYPIU Logo" style={styles.logo} />
+          <div>
+            <p style={styles.kicker}>{schema.header.university}</p>
+            <h1 style={styles.title}>{schema.title}</h1>
+            <p style={styles.meta}>{schema.header.address}</p>
+            <p style={styles.meta}>{schema.header.act}</p>
+            <p style={styles.year}>Academic Year {schema.academicYear}</p>
+          </div>
         </div>
         <div style={styles.actions}>
           <button type="button" style={styles.secondaryButton} onClick={handleClear}>
@@ -294,23 +298,35 @@ const styles = {
     background: "#fff",
     boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
   },
+  headerContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 16,
+    minWidth: 0,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    objectFit: "contain",
+    flexShrink: 0,
+  },
   kicker: {
     margin: "0 0 8px",
     color: "#1d4ed8",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
     textTransform: "uppercase",
   },
   title: {
     margin: "0 0 8px",
     color: "#0f172a",
-    fontSize: 28,
+    fontSize: 18,
     lineHeight: 1.2,
   },
   meta: {
     margin: "3px 0",
     color: "#64748b",
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 1.45,
   },
   year: {
@@ -331,7 +347,7 @@ const styles = {
     color: "#fff",
     background: "#2563eb",
     padding: "10px 13px",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
     cursor: "pointer",
   },
@@ -341,7 +357,7 @@ const styles = {
     color: "#334155",
     background: "#fff",
     padding: "10px 13px",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 700,
     cursor: "pointer",
   },
@@ -351,7 +367,7 @@ const styles = {
     borderRadius: 6,
     color: "#166534",
     background: "#f0fdf4",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 700,
   },
   sections: {
@@ -382,13 +398,13 @@ const styles = {
     flexDirection: "column",
     gap: 3,
     color: "#64748b",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 900,
     textTransform: "uppercase",
   },
   summaryValue: {
     color: "#0f172a",
-    fontSize: 26,
+    fontSize: 18,
     lineHeight: 1,
   },
   summaryActions: {

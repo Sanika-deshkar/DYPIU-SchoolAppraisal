@@ -1,3 +1,5 @@
+import universityLogo from "../../../assets/images/image.png";
+
 const moduleBlocksFor = (module) =>
   module.blocks || [
     ...(module.fields?.length ? [{ type: "fields", fields: module.fields }] : []),
@@ -8,12 +10,15 @@ export default function AdministrativeReportPanel({ meta, modules, data, onClose
   return (
     <div style={styles.panel}>
       <div style={styles.header}>
-        <div>
+        <div style={styles.headerContent}>
+          <img src={universityLogo} alt="DYPIU Logo" style={styles.logo} />
+          <div>
           <p style={styles.kicker}>{meta.university}</p>
           <h2 style={styles.title}>{meta.title}</h2>
           <p style={styles.text}>{meta.address}</p>
           <p style={styles.text}>{meta.act}</p>
           <p style={styles.year}>Academic Year {meta.academicYear}</p>
+          </div>
         </div>
         <div className="admin-report-actions" style={styles.actions}>
           <button type="button" style={styles.secondary} onClick={onClose}>
@@ -146,28 +151,40 @@ const styles = {
     background: "#fff",
     boxShadow: "0 12px 26px rgba(15, 23, 42, 0.04)",
   },
+  headerContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 16,
+    minWidth: 0,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    objectFit: "contain",
+    flexShrink: 0,
+  },
   kicker: {
     margin: "0 0 7px",
     color: "#1d4ed8",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 900,
     textTransform: "uppercase",
   },
   title: {
     margin: "0 0 8px",
     color: "#0f172a",
-    fontSize: 26,
+    fontSize: 18,
   },
   text: {
     margin: "2px 0",
     color: "#64748b",
-    fontSize: 13,
+    fontSize: 14,
   },
   year: {
     margin: "10px 0 0",
     color: "#334155",
     fontWeight: 900,
-    fontSize: 13,
+    fontSize: 14,
   },
   actions: {
     display: "flex",
@@ -201,12 +218,12 @@ const styles = {
     borderRadius: 6,
     background: "#eff6ff",
     color: "#0f172a",
-    fontSize: 19,
+    fontSize: 18,
   },
   moduleNote: {
     margin: "-6px 0 14px",
     color: "#475569",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   fieldGrid: {
@@ -218,14 +235,14 @@ const styles = {
   sectionText: {
     margin: "0 0 14px",
     color: "#0f172a",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   subsectionHeading: {
     gridColumn: "1 / -1",
     margin: "4px 0 0",
     color: "#0f172a",
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 900,
   },
   fieldBlock: {
@@ -236,13 +253,13 @@ const styles = {
   },
   fieldLabel: {
     color: "#64748b",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 900,
     marginBottom: 5,
   },
   fieldValue: {
     color: "#0f172a",
-    fontSize: 13,
+    fontSize: 14,
     whiteSpace: "pre-wrap",
   },
   tableBlock: {
@@ -255,12 +272,12 @@ const styles = {
     borderRadius: 6,
     background: "#eff6ff",
     color: "#1e293b",
-    fontSize: 15,
+    fontSize: 18,
   },
   notes: {
     margin: "0 0 8px",
     color: "#334155",
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 1.6,
   },
   scroller: {
@@ -276,14 +293,14 @@ const styles = {
     border: "1px solid #cbd5e1",
     background: "#eef4fb",
     color: "#334155",
-    fontSize: 11,
+    fontSize: 14,
     textAlign: "left",
   },
   td: {
     padding: "8px 9px",
     border: "1px solid #e2e8f0",
     color: "#0f172a",
-    fontSize: 12,
+    fontSize: 14,
     verticalAlign: "top",
   },
   signatureWrap: {
@@ -300,7 +317,7 @@ const styles = {
     flexDirection: "column",
     gap: 10,
     color: "#0f172a",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   signatureRow: {

@@ -1,7 +1,7 @@
 //academic & administrative table add rows and delete last row functionality , sr no, table heading(blue)
 import { columnsWithSerial, serialColumnFor } from "./tableHelpers";
 
-const isAttachmentColumn = (column) => /proof\s+as\s+an?\s+attachment/i.test(column);
+const isAttachmentColumn = (column) => /\b(link|proof|attachment|document|mom)\b/i.test(column);
 
 export default function AuditTable({
   table,
@@ -76,22 +76,25 @@ export default function AuditTable({
                   <td key={column} style={{ ...styles.td, ...(serialColumnFor([column]) ? styles.serialCell : {}) }}>
                     {isAttachmentColumn(column) ? (
                       <div style={styles.attachmentCell}>
-                        <input
-                          type="file"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (!file) return;
-                            handleCellChange(rowIndex, column, {
-                              name: file.name,
-                              url: URL.createObjectURL(file),
-                            });
-                          }}
-                          style={styles.fileInput}
-                          aria-label={`${table.title} ${column}`}
-                        />
+                        <label style={styles.attachmentButton}>
+                          Add Attachment
+                          <input
+                            type="file"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (!file) return;
+                              handleCellChange(rowIndex, column, {
+                                name: file.name,
+                                url: URL.createObjectURL(file),
+                              });
+                            }}
+                            style={styles.fileInput}
+                            aria-label={`${table.title} ${column}`}
+                          />
+                        </label>
                         {row[column]?.url && (
                           <a href={row[column].url} target="_blank" rel="noreferrer" style={styles.attachmentLink}>
-                            View attachment
+                            View Attachment
                           </a>
                         )}
                         {row[column]?.name && <span style={styles.fileName}>{row[column].name}</span>}
@@ -165,7 +168,7 @@ const styles = {
   notes: {
     padding: "0 14px 12px",
     color: "#334155",
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 1.6,
   },
   note: {
@@ -186,7 +189,7 @@ const styles = {
   },
   embeddedLabel: {
     color: "#334155",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   embeddedInput: {
@@ -212,7 +215,7 @@ const styles = {
     borderRight: "1px solid #e5edf7",
     color: "#334155",
     background: "#f1f5f9",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 700,
     textAlign: "left",
     whiteSpace: "normal",
@@ -243,7 +246,7 @@ const styles = {
     width: 54,
     textAlign: "center",
     fontWeight: 700,
-    fontSize: 15,
+    fontSize: 14,
   },
   secondaryButton: {
     flex: "0 0 auto",
@@ -252,7 +255,7 @@ const styles = {
     color: "#2563eb",
     background: "#fff",
     padding: "8px 12px",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 800,
     cursor: "pointer",
   },
@@ -262,7 +265,7 @@ const styles = {
     color: "#dc2626",
     background: "#fff",
     padding: "8px 12px",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 800,
     cursor: "pointer",
   },
@@ -280,26 +283,42 @@ const styles = {
     gap: 6,
     minWidth: 180,
   },
+  attachmentButton: {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "fit-content",
+    border: "1px solid #2563eb",
+    borderRadius: 8,
+    color: "#2563eb",
+    background: "#fff",
+    padding: "8px 12px",
+    fontSize: 14,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
   fileInput: {
-    width: "100%",
-    color: "#334155",
-    fontSize: 12,
+    position: "absolute",
+    inset: 0,
+    opacity: 0,
+    cursor: "pointer",
   },
   attachmentLink: {
     color: "#2563eb",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 800,
     textDecoration: "none",
   },
   fileName: {
     color: "#64748b",
-    fontSize: 11,
+    fontSize: 14,
     wordBreak: "break-word",
   },
   emptyCell: {
     padding: 18,
     textAlign: "center",
     color: "#64748b",
-    fontSize: 13,
+    fontSize: 14,
   },
 };

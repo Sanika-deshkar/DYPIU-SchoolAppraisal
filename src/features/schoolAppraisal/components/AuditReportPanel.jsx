@@ -1,4 +1,5 @@
 import { columnsWithSerial } from "./tableHelpers";
+import universityLogo from "../../../assets/images/image.png";
 
 const blocksFor = (section) =>
   section.blocks || [
@@ -10,11 +11,14 @@ export default function AuditReportPanel({ schema, values, tables }) {
   return (
     <div style={styles.panel}>
       <header style={styles.header}>
-        <p style={styles.kicker}>{schema.header.university}</p>
-        <h1 style={styles.title}>{schema.title}</h1>
-        <p style={styles.meta}>{schema.header.address}</p>
-        <p style={styles.meta}>{schema.header.act}</p>
-        <p style={styles.year}>Academic Year {schema.academicYear}</p>
+        <img src={universityLogo} alt="DYPIU Logo" style={styles.logo} />
+        <div>
+          <p style={styles.kicker}>{schema.header.university}</p>
+          <h1 style={styles.title}>{schema.title}</h1>
+          <p style={styles.meta}>{schema.header.address}</p>
+          <p style={styles.meta}>{schema.header.act}</p>
+          <p style={styles.year}>Academic Year {schema.academicYear}</p>
+        </div>
       </header>
 
       {schema.sections.map((section) => (
@@ -116,33 +120,42 @@ const styles = {
     gap: 16,
   },
   header: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 16,
     padding: 22,
     border: "1px solid #dbe3ef",
     borderRadius: 10,
     background: "#fff",
   },
+  logo: {
+    width: 72,
+    height: 72,
+    objectFit: "contain",
+    flexShrink: 0,
+  },
   kicker: {
     margin: "0 0 7px",
     color: "#1d4ed8",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 900,
     textTransform: "uppercase",
   },
   title: {
     margin: "0 0 8px",
     color: "#0f172a",
-    fontSize: 26,
+    fontSize: 18,
   },
   meta: {
     margin: "2px 0",
     color: "#64748b",
-    fontSize: 13,
+    fontSize: 14,
   },
   year: {
     margin: "10px 0 0",
     color: "#334155",
     fontWeight: 900,
-    fontSize: 13,
+    fontSize: 14,
   },
   section: {
     padding: 18,
@@ -157,13 +170,13 @@ const styles = {
     borderRadius: 6,
     background: "#eff6ff",
     color: "#0f172a",
-    fontSize: 19,
+    fontSize: 18,
   },
   subheading: {
     gridColumn: "1 / -1",
     margin: "6px 0 0",
     color: "#0f172a",
-    fontSize: 15,
+    fontSize: 18,
   },
   fieldGrid: {
     display: "grid",
@@ -179,13 +192,13 @@ const styles = {
   },
   fieldLabel: {
     color: "#64748b",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 900,
     marginBottom: 5,
   },
   fieldValue: {
     color: "#0f172a",
-    fontSize: 13,
+    fontSize: 14,
     whiteSpace: "pre-wrap",
   },
   tableBlock: {
@@ -198,7 +211,7 @@ const styles = {
     borderRadius: 6,
     background: "#eff6ff",
     color: "#0f172a",
-    fontSize: 15,
+    fontSize: 18,
   },
   tableScroller: {
     overflowX: "auto",
@@ -213,14 +226,14 @@ const styles = {
     border: "1px solid #cbd5e1",
     background: "#eef4fb",
     color: "#334155",
-    fontSize: 11,
+    fontSize: 14,
     textAlign: "left",
   },
   td: {
     padding: "8px 9px",
     border: "1px solid #e2e8f0",
     color: "#0f172a",
-    fontSize: 12,
+    fontSize: 14,
     verticalAlign: "top",
   },
   signatureWrap: {
@@ -237,7 +250,7 @@ const styles = {
     flexDirection: "column",
     gap: 10,
     color: "#0f172a",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   signatureRow: {

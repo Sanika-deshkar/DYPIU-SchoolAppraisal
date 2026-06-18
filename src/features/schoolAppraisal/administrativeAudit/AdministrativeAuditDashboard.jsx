@@ -1,6 +1,7 @@
 //main dashboard for administrative audit 2025-26 form, contains sidebar, header, summary metrics, and module panel with fields and tables
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import universityLogo from "../../../assets/images/image.png";
 import AuditTable from "../components/AuditTable";
 import { columnsWithSerial, serialColumnFor } from "../components/tableHelpers";
 import AdministrativeReportPanel from "./AdministrativeReportPanel";
@@ -241,12 +242,15 @@ export default function AdministrativeAuditDashboard() {
 
         <main className="admin-audit-main" style={styles.main}>
           <header className="admin-audit-header" style={styles.header}>
-            <div>
-              <p style={styles.kicker}>{administrativeAuditMeta.university}</p>
-              <h1 style={styles.title}>{administrativeAuditMeta.title}</h1>
-              <p style={styles.meta}>{administrativeAuditMeta.address}</p>
-              <p style={styles.meta}>{administrativeAuditMeta.act}</p>
-              <p style={styles.year}>Academic Year {administrativeAuditMeta.academicYear}</p>
+            <div style={styles.headerContent}>
+              <img src={universityLogo} alt="DYPIU Logo" style={styles.logo} />
+              <div>
+                <p style={styles.kicker}>{administrativeAuditMeta.university}</p>
+                <h1 style={styles.title}>{administrativeAuditMeta.title}</h1>
+                <p style={styles.meta}>{administrativeAuditMeta.address}</p>
+                <p style={styles.meta}>{administrativeAuditMeta.act}</p>
+                <p style={styles.year}>Academic Year {administrativeAuditMeta.academicYear}</p>
+              </div>
             </div>
             <div className="admin-audit-actions" style={styles.headerActions}>
               <button type="button" style={styles.secondaryButton} onClick={resetDraft}>
@@ -549,7 +553,7 @@ const styles = {
     justifyContent: "center",
     color: "#fff",
     fontWeight: 900,
-    fontSize: 13,
+    fontSize: 14,
   },
   brandTitle: {
     color: "#f8fafc",
@@ -558,7 +562,7 @@ const styles = {
   },
   brandSub: {
     color: "#94a3b8",
-    fontSize: 10,
+    fontSize: 14,
     marginTop: 2,
   },
   roleCard: {
@@ -570,16 +574,16 @@ const styles = {
   roleTitle: {
     color: "#fff",
     fontWeight: 900,
-    fontSize: 13,
+    fontSize: 14,
   },
   roleText: {
     color: "#dbeafe",
-    fontSize: 10,
+    fontSize: 14,
     marginTop: 3,
   },
   roleYear: {
     color: "#bfdbfe",
-    fontSize: 9,
+    fontSize: 14,
     marginTop: 7,
     fontWeight: 900,
   },
@@ -592,7 +596,7 @@ const styles = {
     display: "block",
     color: "#94a3b8",
     fontWeight: 900,
-    fontSize: 10,
+    fontSize: 14,
     textTransform: "uppercase",
     letterSpacing: 0.6,
     marginBottom: 8,
@@ -604,7 +608,7 @@ const styles = {
     background: "#0f172a",
     color: "#e2e8f0",
     padding: "9px 10px",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 800,
     outline: "none",
   },
@@ -618,7 +622,7 @@ const styles = {
   queryLabel: {
     color: "#94a3b8",
     fontWeight: 700,
-    fontSize: 9,
+    fontSize: 14,
     textTransform: "uppercase",
     letterSpacing: 0.6,
     marginBottom: 4,
@@ -626,7 +630,7 @@ const styles = {
   queryLink: {
     color: "#60a5fa",
     fontWeight: 600,
-    fontSize: 11,
+    fontSize: 14,
     wordBreak: "break-all",
     textDecoration: "none",
   },
@@ -655,7 +659,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     fontWeight: 900,
-    fontSize: 12,
+    fontSize: 14,
     flexShrink: 0,
   },
   profileText: {
@@ -663,13 +667,13 @@ const styles = {
   },
   profileName: {
     color: "#e2e8f0",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 900,
     overflowWrap: "anywhere",
   },
   profileMeta: {
     color: "#64748b",
-    fontSize: 9,
+    fontSize: 14,
     marginTop: 2,
     overflowWrap: "anywhere",
   },
@@ -682,7 +686,7 @@ const styles = {
     padding: "9px 11px",
     cursor: "pointer",
     fontWeight: 900,
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: "inherit",
   },
   main: {
@@ -701,23 +705,35 @@ const styles = {
     background: "#fff",
     boxShadow: "0 12px 28px rgba(15,23,42,0.05)",
   },
+  headerContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 16,
+    minWidth: 0,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    objectFit: "contain",
+    flexShrink: 0,
+  },
   kicker: {
     margin: "0 0 8px",
     color: "#1d4ed8",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 900,
     textTransform: "uppercase",
   },
   title: {
     margin: "0 0 8px",
     color: "#0f172a",
-    fontSize: 30,
+    fontSize: 18,
     lineHeight: 1.2,
   },
   meta: {
     margin: "3px 0",
     color: "#64748b",
-    fontSize: 13,
+    fontSize: 14,
   },
   year: {
     margin: "10px 0 0",
@@ -737,7 +753,7 @@ const styles = {
     background: "#2563eb",
     color: "#fff",
     padding: "11px 14px",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -747,7 +763,7 @@ const styles = {
     background: "#fff",
     color: "#334155",
     padding: "11px 14px",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -773,12 +789,12 @@ const styles = {
   moduleTitle: {
     margin: 0,
     color: "#0f172a",
-    fontSize: 23,
+    fontSize: 18,
   },
   moduleNote: {
     margin: "6px 0 0",
     color: "#475569",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   badge: {
@@ -786,7 +802,7 @@ const styles = {
     background: "#dcfce7",
     color: "#166534",
     padding: "6px 10px",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 900,
   },
   fieldGrid: {
@@ -805,7 +821,7 @@ const styles = {
     gridColumn: "1 / -1",
     margin: "4px 0 0",
     color: "#0f172a",
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: 900,
   },
   field: {
@@ -821,7 +837,7 @@ const styles = {
   },
   fieldLabel: {
     color: "#334155",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 900,
   },
   input: {
@@ -868,13 +884,13 @@ const styles = {
     flexDirection: "column",
     gap: 3,
     color: "#64748b",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 900,
     textTransform: "uppercase",
   },
   summaryValue: {
     color: "#0f172a",
-    fontSize: 26,
+    fontSize: 18,
     lineHeight: 1,
   },
   summaryActions: {
@@ -897,7 +913,7 @@ const styles = {
     background: "#f0fdf4",
     color: "#166534",
     padding: "10px 12px",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 800,
   },
   modalBackdrop: {
@@ -918,12 +934,12 @@ const styles = {
   modalTitle: {
     color: "#0f172a",
     fontWeight: 900,
-    fontSize: 17,
+    fontSize: 18,
     marginBottom: 8,
   },
   modalText: {
     color: "#64748b",
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 1.6,
     marginBottom: 18,
   },

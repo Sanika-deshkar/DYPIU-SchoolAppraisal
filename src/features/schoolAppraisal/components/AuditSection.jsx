@@ -124,7 +124,7 @@ const styles = {
   heading: {
     margin: 0,
     color: "#0f172a",
-    fontSize: 20,
+    fontSize: 18,
     lineHeight: 1.3,
   },
   fieldGrid: {
@@ -145,7 +145,7 @@ const styles = {
   },
   label: {
     color: "#334155",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 700,
   },
   subheading: {
@@ -156,7 +156,7 @@ const styles = {
     borderRadius: 6,
     color: "#0f172a",
     background: "#eff6ff",
-    fontSize: 15,
+    fontSize: 18,
     lineHeight: 1.35,
   },
   input: {
