@@ -101,8 +101,32 @@ export default function AdministrativeReportPanel({ meta, modules, data, onClose
             })}
           </section>
         ))}
+        <AuditorSignatureBlock />
       </div>
     </div>
+  );
+}
+
+function AuditorSignatureBlock() {
+  return (
+    <section style={styles.signatureWrap}>
+      {[1, 2].map((auditor) => (
+        <div key={auditor} style={styles.signatureBlock}>
+          <div style={styles.signatureRow}>
+            <span>Name of the Auditor</span>
+            <span style={styles.signatureLine}>:</span>
+          </div>
+          <div style={styles.signatureRow}>
+            <span>Designation</span>
+            <span style={styles.signatureLine}>:</span>
+          </div>
+          <div style={styles.signatureRow}>
+            <span>Date</span>
+            <span style={styles.dateLine}>: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/20</span>
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -261,5 +285,35 @@ const styles = {
     color: "#0f172a",
     fontSize: 12,
     verticalAlign: "top",
+  },
+  signatureWrap: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(260px, 1fr))",
+    gap: 28,
+    padding: "28px 36px",
+    border: "1px solid #dbe3ef",
+    borderRadius: 10,
+    background: "#fff",
+  },
+  signatureBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  signatureRow: {
+    display: "grid",
+    gridTemplateColumns: "118px 1fr",
+    alignItems: "center",
+    gap: 8,
+  },
+  signatureLine: {
+    borderBottom: "1px solid #0f172a",
+    minHeight: 18,
+  },
+  dateLine: {
+    minHeight: 18,
   },
 };

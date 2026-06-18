@@ -100,6 +100,7 @@ export default function DirectorDashboard() {
           activeSectionId={activeSectionId}
           reportMode={reportMode}
           onReportModeChange={setReportMode}
+          onSectionChange={setActiveSectionId}
         />
       </main>
 

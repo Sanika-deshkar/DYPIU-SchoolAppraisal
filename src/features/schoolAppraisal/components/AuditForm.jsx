@@ -60,7 +60,7 @@ function buildInitialTables(schema) {
   }, {});
 }
 
-export default function AuditForm({ schema, activeSectionId, reportMode, onReportModeChange }) {
+export default function AuditForm({ schema, activeSectionId, reportMode, onReportModeChange, onSectionChange }) {
   const initialValues = useMemo(() => buildInitialValues(schema), [schema]);
   const initialTables = useMemo(() => buildInitialTables(schema), [schema]);
   const [values, setValues] = useState(() => {
@@ -129,6 +129,20 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
   const handleSaveDraft = () => {
     window.localStorage.setItem(draftKeyFor(schema.id), JSON.stringify({ values, tables }));
     setStatus("Draft saved in this browser.");
+  };
+
+  const handleSaveAndNext = () => {
+    window.localStorage.setItem(draftKeyFor(schema.id), JSON.stringify({ values, tables }));
+    setStatus("Draft saved in this browser.");
+
+    const sectionIds = [...schema.sections.map((section) => section.id), "summary"];
+    const currentIndex = sectionIds.indexOf(activeSectionId);
+    const nextSectionId = sectionIds[Math.min(currentIndex + 1, sectionIds.length - 1)];
+
+    if (nextSectionId && nextSectionId !== activeSectionId) {
+      onSectionChange?.(nextSectionId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleClear = () => {
@@ -210,6 +224,14 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
             ))
         )}
       </div>
+
+      {activeSectionId !== "summary" && (
+        <div style={styles.sectionFooter}>
+          <button type="button" style={styles.primaryButton} onClick={handleSaveAndNext}>
+            Save & Next
+          </button>
+        </div>
+      )}
     </form>
   );
 }
@@ -373,5 +395,13 @@ const styles = {
     display: "flex",
     justifyContent: "flex-end",
     gap: 10,
+  },
+  sectionFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    padding: "14px 16px",
+    border: "1px solid #dbe3ef",
+    borderRadius: 8,
+    background: "#fff",
   },
 };

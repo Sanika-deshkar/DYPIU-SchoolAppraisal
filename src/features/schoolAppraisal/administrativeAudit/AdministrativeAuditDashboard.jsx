@@ -175,6 +175,21 @@ export default function AdministrativeAuditDashboard() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
   };
 
+  const saveAndGoNext = () => {
+    const nextData = { ...data, lastSavedAt: new Date().toISOString() };
+    setData(nextData);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+
+    const moduleIds = [...administrativeAuditModules.map((module) => module.id), administrativeSummaryModule.id];
+    const currentIndex = moduleIds.indexOf(activeModuleId);
+    const nextModuleId = moduleIds[Math.min(currentIndex + 1, moduleIds.length - 1)];
+
+    if (nextModuleId && nextModuleId !== activeModuleId) {
+      setActiveModuleId(nextModuleId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handleLogout = () => {
     sessionStorage.clear();
     navigate("/login", { replace: true });
@@ -252,7 +267,7 @@ export default function AdministrativeAuditDashboard() {
             </div>
 
             {isSummary ? (
-                <SummaryPanel
+              <SummaryPanel
                 modules={administrativeAuditModules}
                 data={data}
                 submitStatus={submitStatus}
@@ -291,6 +306,14 @@ export default function AdministrativeAuditDashboard() {
                 </div>
               );
               })
+            )}
+
+            {!isSummary && (
+              <div style={styles.sectionFooter}>
+                <button type="button" style={styles.primaryButton} onClick={saveAndGoNext}>
+                  Save & Next
+                </button>
+              </div>
             )}
           </section>
         </main>
@@ -858,6 +881,15 @@ const styles = {
     display: "flex",
     justifyContent: "flex-end",
     gap: 10,
+  },
+  sectionFooter: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginTop: 16,
+    padding: "14px 16px",
+    border: "1px solid #dbe3ef",
+    borderRadius: 8,
+    background: "#f8fafc",
   },
   submitStatus: {
     border: "1px solid #bbf7d0",
