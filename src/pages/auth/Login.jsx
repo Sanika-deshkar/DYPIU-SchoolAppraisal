@@ -7,6 +7,25 @@ import universityLogo from "../../assets/images/image.png";
 const normalizeEmail = (value) => value.trim().toLowerCase();
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const LOGIN_ACCOUNTS = {
+  "director@dypiu.ac.in": {
+    password: "Director@123",
+    name: "Director of Schools",
+    designation: "Director",
+    school: "Director of Schools",
+    role: "director",
+    dashboard: "/director/dashboard",
+  },
+  "administrative@dypiu.ac.in": {
+    password: "Admin@123",
+    name: "Administrative User",
+    designation: "Registrar",
+    school: "Administrative Office",
+    role: "administrative",
+    dashboard: "/administrative/dashboard",
+  },
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,6 +54,13 @@ export default function Login() {
       return;
     }
 
+    const account = LOGIN_ACCOUNTS[email];
+    if (!account || account.password !== pw) {
+      setError("Invalid email address or password.");
+      setMessage("");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setMessage("");
@@ -42,11 +68,12 @@ export default function Login() {
     window.setTimeout(() => {
       sessionStorage.setItem("email", email);
       sessionStorage.setItem("username", email);
-      sessionStorage.setItem("name", email.split("@")[0] || "Director of Schools");
-      sessionStorage.setItem("designation", "Director");
-      sessionStorage.setItem("school", "Director of Schools");
+      sessionStorage.setItem("name", account.name);
+      sessionStorage.setItem("designation", account.designation);
+      sessionStorage.setItem("school", account.school);
+      sessionStorage.setItem("role", account.role);
       setLoading(false);
-      navigate("/director/dashboard", { replace: true });
+      navigate(account.dashboard, { replace: true });
     }, 400);
   };
 
