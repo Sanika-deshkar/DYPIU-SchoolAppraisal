@@ -5,6 +5,7 @@ import universityLogo from "../../../assets/images/image.png";
 import AuditTable from "../components/AuditTable";
 import { columnsWithSerial, serialColumnFor } from "../components/tableHelpers";
 import AdministrativeReportPanel from "./AdministrativeReportPanel";
+import AppSidebar from "../components/AppSidebar";
 import { administrativeAuditMeta, administrativeAuditModules, administrativeSummaryModule } from "./administrativeAuditConfig";
 
 const STORAGE_KEY = "dypiu-school-appraisal:administrative-audit-2025-26";
@@ -67,15 +68,6 @@ const getUserProfile = () => ({
   school: sessionStorage.getItem("school") || "Administrative Office",
   email: sessionStorage.getItem("email") || sessionStorage.getItem("username") || "",
 });
-
-const initialsFor = (name) =>
-  name
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
 export default function AdministrativeAuditDashboard() {
   const navigate = useNavigate();
@@ -241,7 +233,7 @@ export default function AdministrativeAuditDashboard() {
         />
 
         <main className="admin-audit-main" style={styles.main}>
-          <header className="admin-audit-header" style={styles.header}>
+          <header className="admin-audit-header audit-form__header" style={styles.header}>
             <div style={styles.headerContent}>
               <img src={universityLogo} alt="DYPIU Logo" style={styles.logo} />
               <div>
@@ -253,13 +245,13 @@ export default function AdministrativeAuditDashboard() {
               </div>
             </div>
             <div className="admin-audit-actions" style={styles.headerActions}>
-              <button type="button" style={styles.secondaryButton} onClick={resetDraft}>
+              <button type="button" className="btn btn-secondary" onClick={resetDraft}>
                 Reset
               </button>
             </div>
           </header>
 
-          <section style={styles.modulePanel}>
+          <section className="admin-form-panel audit-section-card" style={styles.modulePanel}>
             <div style={styles.moduleHead}>
               <div>
                 <h2 style={styles.moduleTitle}>
@@ -314,7 +306,7 @@ export default function AdministrativeAuditDashboard() {
 
             {!isSummary && (
               <div style={styles.sectionFooter}>
-                <button type="button" style={styles.primaryButton} onClick={saveAndGoNext}>
+                <button type="button" className="btn btn-primary" onClick={saveAndGoNext}>
                   Save & Next
                 </button>
               </div>
@@ -333,12 +325,11 @@ function PrintStyles() {
     <style>{`
       @media (max-width: 900px) {
         .admin-audit-shell { flex-direction: column; }
-        .admin-audit-sidebar { width: 100% !important; height: auto !important; position: relative !important; }
         .admin-audit-main { padding: 18px !important; }
         .admin-audit-header { flex-direction: column; }
       }
       @media print {
-        .admin-audit-sidebar,
+        .app-sidebar,
         .admin-audit-actions,
         .admin-report-actions {
           display: none !important;
@@ -361,65 +352,24 @@ function PrintStyles() {
 
 function Sidebar({ activeModuleId, setActiveModuleId, profile, onLogout }) {
   return (
-    <aside className="admin-audit-sidebar" style={styles.sidebar}>
-      <div style={styles.brand}>
-        <div style={styles.brandMark}>AA</div>
-        <div>
-          <div style={styles.brandTitle}>Administrative Audit</div>
-          <div style={styles.brandSub}>School Appraisal</div>
-        </div>
-      </div>
-
-      <div style={styles.roleCard}>
-        <div style={styles.roleTitle}>Administrative Module</div>
-        <div style={styles.roleText}>Registrar / HR / DSW / Placement</div>
-        <div style={styles.roleYear}>AY 2025-26</div>
-      </div>
-
-      <div style={styles.navCard}>
-        <label style={styles.navLabel} htmlFor="administrative-audit-module">
-          School Appraisal Form
-        </label>
-        <select id="administrative-audit-module" value={activeModuleId} onChange={(event) => setActiveModuleId(event.target.value)} style={styles.navSelect}>
-          {administrativeAuditModules.map((module) => (
-            <option key={module.id} value={module.id}>
-              {module.number}. {module.title}
-            </option>
-          ))}
-          <option value={administrativeSummaryModule.id}>{administrativeSummaryModule.title}</option>
-        </select>
-      </div>
-
-      <div style={styles.queryCard}>
-        <div style={styles.queryLabel}>For any queries</div>
-        <a href="mailto:appraisal@dypiu.ac.in" style={styles.queryLink}>
-          appraisal@dypiu.ac.in
-        </a>
-      </div>
-
-      <div style={styles.sidebarSpacer} />
-
-      <div style={styles.profileBlock}>
-        <div style={styles.profileRow}>
-          <div style={styles.avatar}>{initialsFor(profile.name) || "AU"}</div>
-          <div style={styles.profileText}>
-            <div style={styles.profileName}>{profile.name}</div>
-            <div style={styles.profileMeta}>{profile.designation}</div>
-            <div style={styles.profileMeta}>{profile.school}</div>
-            {profile.email && <div style={styles.profileMeta}>{profile.email}</div>}
-          </div>
-        </div>
-        <button type="button" style={styles.logoutButton} onClick={onLogout}>
-          Logout
-        </button>
-      </div>
-    </aside>
+    <AppSidebar
+      title="Administrative Audit"
+      subtitle="School Appraisal"
+      badge="AA"
+      roleTitle="Administrative Module"
+      roleText="Registrar · HR · DSW · Placement"
+      items={[...administrativeAuditModules, administrativeSummaryModule]}
+      activeId={activeModuleId}
+      onChange={setActiveModuleId}
+      profile={profile}
+      onLogout={onLogout}
+    />
   );
 }
 
 function FieldGrid({ fields, data, onChange }) {
   return (
-    <div style={styles.fieldGrid}>
+    <div className="audit-field-grid" style={styles.fieldGrid}>
       {fields.map((field) => {
         if (field.kind === "heading") {
           return (
@@ -430,12 +380,13 @@ function FieldGrid({ fields, data, onChange }) {
         }
 
         return (
-          <label key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
+          <label className="audit-field" key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
             <span style={styles.fieldLabel}>{field.label}</span>
             {field.type === "textarea" ? (
               <textarea
                 value={data.fields[field.id] ?? ""}
                 onChange={(event) => onChange(field.id, event.target.value)}
+                className="audit-control"
                 style={styles.textarea}
                 rows={4}
               />
@@ -443,6 +394,7 @@ function FieldGrid({ fields, data, onChange }) {
               <input
                 value={data.fields[field.id] ?? ""}
                 onChange={(event) => onChange(field.id, event.target.value)}
+                className="audit-control"
                 style={styles.input}
                 type={field.type || "text"}
               />
@@ -481,10 +433,10 @@ function SummaryPanel({ modules, data, submitStatus, onGenerateReport, onSubmit 
       </div>
 
       <div style={styles.summaryActions}>
-        <button type="button" style={styles.secondaryButton} onClick={onGenerateReport}>
+        <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>
           Generate Report
         </button>
-        <button type="button" style={styles.primaryButton} onClick={onSubmit}>
+        <button type="button" className="btn btn-primary" onClick={onSubmit}>
           Submit
         </button>
       </div>
@@ -517,9 +469,9 @@ const styles = {
   shell: {
     minHeight: "100vh",
     display: "flex",
-    background: "#f0f4ff",
+    background: "#f5f7fb",
     color: "#0f172a",
-    fontFamily: "'Segoe UI', Arial, sans-serif",
+    fontFamily: "Inter, 'Segoe UI', sans-serif",
   },
   sidebar: {
     width: 264,
@@ -699,11 +651,11 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: 18,
-    padding: 22,
-    border: "1px solid #dbe3ef",
-    borderRadius: 12,
+    padding: "24px 26px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 16,
     background: "#fff",
-    boxShadow: "0 12px 28px rgba(15,23,42,0.05)",
+    boxShadow: "0 10px 35px rgba(15,23,42,0.055)",
   },
   headerContent: {
     display: "flex",
@@ -720,26 +672,29 @@ const styles = {
   kicker: {
     margin: "0 0 8px",
     color: "#1d4ed8",
-    fontSize: 14,
-    fontWeight: 900,
+    fontSize: 11,
+    fontWeight: 750,
     textTransform: "uppercase",
+    letterSpacing: ".08em",
   },
   title: {
     margin: "0 0 8px",
     color: "#0f172a",
-    fontSize: 18,
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: "-.025em",
     lineHeight: 1.2,
   },
   meta: {
     margin: "3px 0",
     color: "#64748b",
-    fontSize: 14,
+    fontSize: 12.5,
   },
   year: {
     margin: "10px 0 0",
     color: "#334155",
-    fontSize: 14,
-    fontWeight: 900,
+    fontSize: 11,
+    fontWeight: 650,
   },
   headerActions: {
     display: "flex",
@@ -768,47 +723,49 @@ const styles = {
     cursor: "pointer",
   },
   modulePanel: {
-    border: "1px solid #dbe3ef",
-    borderRadius: 12,
+    border: "1px solid #e2e8f0",
+    borderRadius: 16,
     background: "#fff",
-    padding: 18,
+    padding: 24,
     marginTop: 16,
-    boxShadow: "0 12px 28px rgba(15,23,42,0.05)",
+    boxShadow: "0 12px 35px rgba(15,23,42,0.045)",
   },
   moduleHead: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 16,
-    padding: "12px 14px",
-    borderLeft: "4px solid #2563eb",
-    borderRadius: 6,
-    background: "#eff6ff",
+    padding: "0 0 16px",
+    borderBottom: "1px solid #edf1f6",
     marginBottom: 16,
   },
   moduleTitle: {
     margin: 0,
     color: "#0f172a",
-    fontSize: 18,
+    fontSize: 17,
+    fontWeight: 700,
+    letterSpacing: "-.015em",
   },
   moduleNote: {
     margin: "6px 0 0",
     color: "#475569",
-    fontSize: 14,
-    fontWeight: 800,
+    fontSize: 12,
+    fontWeight: 600,
   },
   badge: {
     borderRadius: 999,
     background: "#dcfce7",
     color: "#166534",
-    padding: "6px 10px",
-    fontSize: 14,
-    fontWeight: 900,
+    padding: "5px 9px",
+    fontSize: 9.5,
+    fontWeight: 700,
+    letterSpacing: ".04em",
+    textTransform: "uppercase",
   },
   fieldGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: 14,
+    gap: "18px 16px",
     marginBottom: 16,
   },
   sectionText: {
@@ -821,8 +778,8 @@ const styles = {
     gridColumn: "1 / -1",
     margin: "4px 0 0",
     color: "#0f172a",
-    fontSize: 18,
-    fontWeight: 900,
+    fontSize: 15,
+    fontWeight: 700,
   },
   field: {
     display: "flex",
@@ -837,27 +794,27 @@ const styles = {
   },
   fieldLabel: {
     color: "#334155",
-    fontSize: 14,
-    fontWeight: 900,
+    fontSize: 12,
+    fontWeight: 650,
   },
   input: {
     width: "100%",
-    border: "1px solid #cbd5e1",
-    borderRadius: 7,
-    padding: "10px 11px",
+    border: "1px solid #d7dee9",
+    borderRadius: 10,
+    padding: "11px 12px",
     color: "#0f172a",
-    background: "#fff",
+    background: "#fbfcfe",
     outline: "none",
   },
   textarea: {
     width: "100%",
     minHeight: 92,
     resize: "vertical",
-    border: "1px solid #cbd5e1",
-    borderRadius: 7,
-    padding: "10px 11px",
+    border: "1px solid #d7dee9",
+    borderRadius: 10,
+    padding: "11px 12px",
     color: "#0f172a",
-    background: "#fff",
+    background: "#fbfcfe",
     outline: "none",
   },
   tables: {
@@ -876,10 +833,10 @@ const styles = {
     gap: 12,
   },
   summaryCard: {
-    border: "1px solid #dbe3ef",
-    borderRadius: 10,
-    background: "#f8fafc",
-    padding: "14px 16px",
+    border: "1px solid #e5eaf2",
+    borderRadius: 13,
+    background: "linear-gradient(145deg, #f8fafc, #fff)",
+    padding: "18px 20px",
     display: "flex",
     flexDirection: "column",
     gap: 3,

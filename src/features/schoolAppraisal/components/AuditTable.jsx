@@ -25,7 +25,7 @@ export default function AuditTable({
   };
 
   return (
-    <section style={styles.wrap}>
+    <section className="audit-table-card" style={styles.wrap}>
       {table.showTitle !== false && (
         <div style={styles.header}>
           <h3 style={styles.title}>{table.title}</h3>
@@ -50,6 +50,7 @@ export default function AuditTable({
               <input
                 value={values[field.id] ?? ""}
                 onChange={(event) => onFieldChange(field.id, event.target.value)}
+                className="audit-control"
                 style={styles.embeddedInput}
                 type={field.type || "text"}
               />
@@ -76,7 +77,7 @@ export default function AuditTable({
                   <td key={column} style={{ ...styles.td, ...(serialColumnFor([column]) ? styles.serialCell : {}) }}>
                     {isAttachmentColumn(column) ? (
                       <div style={styles.attachmentCell}>
-                        <label style={styles.attachmentButton}>
+                        <label className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center' }}>
                           Add Attachment
                           <input
                             type="file"
@@ -100,7 +101,7 @@ export default function AuditTable({
                         {row[column]?.name && <span style={styles.fileName}>{row[column].name}</span>}
                       </div>
                     ) : (
-                      <input
+                      <input className="audit-table-input"
                         value={row[column] ?? ""}
                         onChange={(event) => handleCellChange(rowIndex, column, event.target.value)}
                         style={{
@@ -128,10 +129,10 @@ export default function AuditTable({
       </div>
 
       <div style={styles.footer}>
-        <button type="button" style={styles.secondaryButton} onClick={onAddRow}>
+        <button type="button" className="btn btn-secondary" onClick={onAddRow}>
           Add Row
         </button>
-        <button type="button" style={styles.removeButton} onClick={onDeleteLastRow} disabled={rows.length === 1}>
+        <button type="button" className="btn btn-danger" onClick={onDeleteLastRow} disabled={rows.length === 1}>
           Delete Last Row
         </button>
       </div>
@@ -142,7 +143,7 @@ export default function AuditTable({
 const styles = {
   wrap: {
     border: "1px solid #dbe3ef",
-    borderRadius: 6,
+    borderRadius: 13,
     background: "#fff",
     overflow: "hidden",
   },
@@ -151,19 +152,17 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
-    margin: "12px 14px",
-    padding: "12px 14px",
-    borderBottom: "1px solid #e5edf7",
-    borderLeft: "4px solid #2563eb",
-    borderRadius: 6,
-    background: "#eff6ff",
+    margin: 0,
+    padding: "15px 17px",
+    borderBottom: "1px solid #e8edf4",
+    background: "#f8fafc",
   },
   title: {
     margin: 0,
-    fontSize: 18,
+    fontSize: 14,
     lineHeight: 1.35,
     color: "#0f172a",
-    fontWeight: 900,
+    fontWeight: 700,
   },
   notes: {
     padding: "0 14px 12px",
@@ -195,7 +194,7 @@ const styles = {
   embeddedInput: {
     width: "100%",
     border: "1px solid #cbd5e1",
-    borderRadius: 5,
+    borderRadius: 9,
     padding: "10px 11px",
     color: "#0f172a",
     background: "#fff",
@@ -210,13 +209,14 @@ const styles = {
     borderCollapse: "collapse",
   },
   th: {
-    padding: "10px 12px",
+    padding: "11px 12px",
     borderBottom: "1px solid #dbe3ef",
     borderRight: "1px solid #e5edf7",
     color: "#334155",
-    background: "#f1f5f9",
-    fontSize: 14,
+    background: "#f8fafc",
+    fontSize: 11,
     fontWeight: 700,
+    letterSpacing: ".025em",
     textAlign: "left",
     whiteSpace: "normal",
   },
@@ -235,8 +235,8 @@ const styles = {
     width: "100%",
     minWidth: 120,
     border: "1px solid #cbd5e1",
-    borderRadius: 4,
-    padding: "8px 9px",
+    borderRadius: 8,
+    padding: "9px 10px",
     color: "#0f172a",
     background: "#fff",
     outline: "none",
@@ -275,7 +275,7 @@ const styles = {
     gap: 10,
     padding: "12px 14px",
     borderTop: "1px solid #e5edf7",
-    background: "#f8fafc",
+    background: "#fbfcfe",
   },
   attachmentCell: {
     display: "flex",

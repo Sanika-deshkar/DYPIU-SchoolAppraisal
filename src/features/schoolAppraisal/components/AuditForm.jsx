@@ -85,6 +85,8 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
   const [status, setStatus] = useState("");
   const [submitStatus, setSubmitStatus] = useState("");
   const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
+  const activeSectionIndex = Math.max(0, schema.sections.findIndex((section) => section.id === activeSectionId));
+  const progress = activeSectionId === "summary" ? 100 : Math.round(((activeSectionIndex + 1) / schema.sections.length) * 100);
 
   useEffect(() => {
     if (!reportMode || !printReportAfterRender) return undefined;
@@ -167,7 +169,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
     return (
       <div style={styles.form}>
         <div className="academic-report-actions" style={styles.actions}>
-          <button type="button" style={styles.secondaryButton} onClick={() => onReportModeChange(false)}>
+          <button type="button" className="btn btn-secondary" onClick={() => onReportModeChange(false)}>
             Close
           </button>
         </div>
@@ -177,25 +179,30 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
   }
 
   return (
-    <form style={styles.form} onSubmit={(event) => event.preventDefault()}>
-      <header style={styles.header}>
+    <form className="audit-form" style={styles.form} onSubmit={(event) => event.preventDefault()}>
+      <header className="audit-form__header" style={styles.header}>
         <div style={styles.headerContent}>
-          <img src={universityLogo} alt="DYPIU Logo" style={styles.logo} />
-          <div>
+          <div style={styles.logoWrap}><img src={universityLogo} alt="DYPIU Logo" style={styles.logo} /></div>
+          <div style={styles.headerCopy}>
             <p style={styles.kicker}>{schema.header.university}</p>
             <h1 style={styles.title}>{schema.title}</h1>
             <p style={styles.meta}>{schema.header.address}</p>
-            <p style={styles.meta}>{schema.header.act}</p>
-            <p style={styles.year}>Academic Year {schema.academicYear}</p>
+            <div style={styles.headerMetaRow}>
+              <span style={styles.year}>Academic Year {schema.academicYear}</span>
+              <span style={styles.draftPill}>Draft in progress</span>
+            </div>
           </div>
         </div>
         <div style={styles.actions}>
-          <button type="button" style={styles.secondaryButton} onClick={handleClear}>
+          <button type="button" className="btn btn-secondary" onClick={handleClear}>
             Clear
           </button>
-          <button type="button" style={styles.primaryButton} onClick={handleSaveDraft}>
+          <button type="button" className="btn btn-primary" onClick={handleSaveDraft}>
             Save Draft
           </button>
+        </div>
+        <div className="audit-form__progress" style={styles.progressTrack}>
+          <span style={{ ...styles.progressBar, width: `${progress}%` }} />
         </div>
       </header>
 
@@ -231,7 +238,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
 
       {activeSectionId !== "summary" && (
         <div style={styles.sectionFooter}>
-          <button type="button" style={styles.primaryButton} onClick={handleSaveAndNext}>
+          <button type="button" className="btn btn-primary" onClick={handleSaveAndNext}>
             Save & Next
           </button>
         </div>
@@ -267,10 +274,10 @@ function SummaryPanel({ schema, values, tables, submitStatus, onGenerateReport, 
       </div>
 
       <div style={styles.summaryActions}>
-        <button type="button" style={styles.secondaryButton} onClick={onGenerateReport}>
+        <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>
           Generate Report
         </button>
-        <button type="button" style={styles.primaryButton} onClick={onSubmit}>
+        <button type="button" className="btn btn-primary" onClick={onSubmit}>
           Submit
         </button>
       </div>
@@ -288,53 +295,68 @@ const styles = {
     gap: 18,
   },
   header: {
+    position: "relative",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: 18,
-    padding: 22,
-    border: "1px solid #dbe3ef",
-    borderRadius: 8,
+    padding: "24px 26px 28px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 16,
     background: "#fff",
-    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
+    boxShadow: "0 10px 35px rgba(15, 23, 42, 0.055)",
+    overflow: "hidden",
   },
   headerContent: {
     display: "flex",
     alignItems: "flex-start",
-    gap: 16,
+    gap: 18,
     minWidth: 0,
   },
+  headerCopy: { minWidth: 0 },
+  logoWrap: {
+    width: 76,
+    height: 76,
+    display: "grid",
+    placeItems: "center",
+    flexShrink: 0,
+    border: "1px solid #e7edf5",
+    borderRadius: 14,
+    background: "#f8fafc",
+  },
   logo: {
-    width: 72,
-    height: 72,
+    width: 62,
+    height: 62,
     objectFit: "contain",
     flexShrink: 0,
   },
   kicker: {
-    margin: "0 0 8px",
-    color: "#1d4ed8",
-    fontSize: 14,
-    fontWeight: 800,
+    margin: "0 0 6px",
+    color: "#2563eb",
+    fontSize: 11,
+    fontWeight: 750,
     textTransform: "uppercase",
+    letterSpacing: ".08em",
   },
   title: {
     margin: "0 0 8px",
     color: "#0f172a",
-    fontSize: 18,
-    lineHeight: 1.2,
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: "-.025em",
+    lineHeight: 1.25,
   },
   meta: {
     margin: "3px 0",
     color: "#64748b",
-    fontSize: 14,
+    fontSize: 12.5,
     lineHeight: 1.45,
   },
-  year: {
-    margin: "10px 0 0",
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: 700,
-  },
+  headerMetaRow: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10 },
+  year: { color: "#334155", fontSize: 11, fontWeight: 650 },
+  draftPill: { padding: "4px 8px", borderRadius: 999, color: "#0369a1", background: "#e0f2fe", fontSize: 9.5, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase" },
+  progressTrack: { position: "absolute", left: 0, right: 0, bottom: 0, height: 4, background: "#eff6ff" },
+  progressBar: { display: "block", height: "100%", borderRadius: "0 4px 4px 0", background: "linear-gradient(90deg, #2563eb, #38bdf8)", transition: "width .3s ease" },
   actions: {
     display: "flex",
     gap: 10,
@@ -364,7 +386,7 @@ const styles = {
   status: {
     padding: "10px 12px",
     border: "1px solid #bbf7d0",
-    borderRadius: 6,
+    borderRadius: 10,
     color: "#166534",
     background: "#f0fdf4",
     fontSize: 14,
@@ -379,9 +401,9 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 16,
-    padding: 20,
-    border: "1px solid #dbe3ef",
-    borderRadius: 8,
+    padding: 24,
+    border: "1px solid #e2e8f0",
+    borderRadius: 16,
     background: "#fff",
   },
   summaryGrid: {
@@ -390,10 +412,10 @@ const styles = {
     gap: 12,
   },
   summaryCard: {
-    border: "1px solid #dbe3ef",
-    borderRadius: 10,
-    background: "#f8fafc",
-    padding: "14px 16px",
+    border: "1px solid #e5eaf2",
+    borderRadius: 13,
+    background: "linear-gradient(145deg, #f8fafc, #ffffff)",
+    padding: "18px 20px",
     display: "flex",
     flexDirection: "column",
     gap: 3,
@@ -416,8 +438,8 @@ const styles = {
     display: "flex",
     justifyContent: "flex-end",
     padding: "14px 16px",
-    border: "1px solid #dbe3ef",
-    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
     background: "#fff",
   },
 };

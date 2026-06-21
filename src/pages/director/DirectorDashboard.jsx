@@ -1,16 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuditForm from "../../features/schoolAppraisal/components/AuditForm";
+import AppSidebar from "../../features/schoolAppraisal/components/AppSidebar";
 import { academicAudit2025Schema } from "../../features/schoolAppraisal/formSchemas";
-
-const getInitials = (name) =>
-  name
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
 export default function DirectorDashboard() {
   const navigate = useNavigate();
@@ -24,11 +16,6 @@ export default function DirectorDashboard() {
     email: sessionStorage.getItem("email") || sessionStorage.getItem("username") || "",
   };
 
-  const handleSectionChange = (event) => {
-    setReportMode(false);
-    setActiveSectionId(event.target.value);
-  };
-
   const handleLogout = () => {
     sessionStorage.clear();
     navigate("/login", { replace: true });
@@ -38,61 +25,17 @@ export default function DirectorDashboard() {
     <>
       <PrintStyles />
       <div className="academic-audit-shell" style={styles.shell}>
-      <aside className="academic-audit-sidebar" style={styles.sidebar}>
-        <div style={styles.brand}>
-          <div style={styles.brandMark}>SA</div>
-          <div>
-            <div style={styles.brandTitle}>School Appraisal</div>
-            <div style={styles.brandSub}>D Y Patil International University</div>
-          </div>
-        </div>
-
-        <div style={styles.roleCard}>
-          <div style={styles.roleTitle}>Academic Audit</div>
-          <div style={styles.roleText}>Director of Schools</div>
-          <div style={styles.roleYear}>AY 2025-26</div>
-        </div>
-
-        <div style={styles.divider} />
-
-        <div style={styles.navCard}>
-          <label style={styles.navLabel} htmlFor="school-appraisal-section">
-            School Appraisal Form
-          </label>
-          <select id="school-appraisal-section" style={styles.navSelect} value={activeSectionId} onChange={handleSectionChange}>
-            {academicAudit2025Schema.sections.map((section) => (
-              <option key={section.id} value={section.id}>
-                {section.title}
-              </option>
-            ))}
-            <option value="summary">Summary</option>
-          </select>
-        </div>
-
-        <div style={styles.queryCard}>
-          <div style={styles.queryLabel}>For any queries</div>
-          <a href="mailto:appraisal@dypiu.ac.in" style={styles.queryLink}>
-            appraisal@dypiu.ac.in
-          </a>
-        </div>
-
-        <div style={styles.spacer} />
-
-        <div style={styles.profileBlock}>
-          <div style={styles.profileRow}>
-            <div style={styles.avatar}>{getInitials(profile.name) || "DS"}</div>
-            <div style={styles.profileText}>
-              <div style={styles.profileName}>{profile.name}</div>
-              <div style={styles.profileMeta}>{profile.designation}</div>
-              <div style={styles.profileMeta}>{profile.school}</div>
-              {profile.email && <div style={styles.profileMeta}>{profile.email}</div>}
-            </div>
-          </div>
-          <button type="button" style={styles.logoutButton} onClick={() => setShowLogoutModal(true)}>
-            Logout
-          </button>
-        </div>
-      </aside>
+      <AppSidebar
+        title="School Appraisal"
+        subtitle="D. Y. Patil International University"
+        roleTitle="Academic Audit"
+        roleText="Director of Schools"
+        items={[...academicAudit2025Schema.sections, { id: "summary", title: "Summary" }]}
+        activeId={activeSectionId}
+        onChange={(sectionId) => { setReportMode(false); setActiveSectionId(sectionId); }}
+        profile={profile}
+        onLogout={() => setShowLogoutModal(true)}
+      />
 
       <main className="academic-audit-main" style={styles.page}>
         <AuditForm
@@ -115,11 +58,10 @@ function PrintStyles() {
     <style>{`
       @media (max-width: 900px) {
         .academic-audit-shell { flex-direction: column; }
-        .academic-audit-sidebar { width: 100% !important; height: auto !important; position: relative !important; }
         .academic-audit-main { padding: 18px !important; }
       }
       @media print {
-        .academic-audit-sidebar,
+        .app-sidebar,
         .academic-report-actions {
           display: none !important;
         }
@@ -162,9 +104,9 @@ const styles = {
   shell: {
     minHeight: "100vh",
     display: "flex",
-    background: "#f1f5f9",
+    background: "#f5f7fb",
     color: "#0f172a",
-    fontFamily: "'Segoe UI', Arial, sans-serif",
+    fontFamily: "Inter, 'Segoe UI', sans-serif",
   },
   sidebar: {
     width: 264,
@@ -343,7 +285,7 @@ const styles = {
   page: {
     minHeight: "100vh",
     flex: 1,
-    background: "#f0f4ff",
+    background: "#f5f7fb",
     padding: "28px 30px 40px",
     overflowX: "auto",
   },

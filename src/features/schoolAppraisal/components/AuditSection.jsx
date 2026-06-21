@@ -3,7 +3,7 @@ import AuditTable from "./AuditTable";
 
 function FieldGrid({ fields, values, onFieldChange }) {
   return (
-    <div style={styles.fieldGrid}>
+    <div className="audit-field-grid" style={styles.fieldGrid}>
       {fields.map((field) => {
         if (field.kind === "heading") {
           return (
@@ -14,12 +14,13 @@ function FieldGrid({ fields, values, onFieldChange }) {
         }
 
         return (
-          <label key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
+          <label className="audit-field" key={field.id} style={field.type === "textarea" ? styles.wideField : styles.field}>
             <span style={styles.label}>{field.label}</span>
             {field.type === "textarea" ? (
               <textarea
                 value={values[field.id] ?? ""}
                 onChange={(event) => onFieldChange(field.id, event.target.value)}
+                className="audit-control"
                 style={styles.textarea}
                 rows={4}
               />
@@ -27,6 +28,7 @@ function FieldGrid({ fields, values, onFieldChange }) {
               <select
                 value={values[field.id] ?? ""}
                 onChange={(event) => onFieldChange(field.id, event.target.value)}
+                className="audit-control"
                 style={styles.input}
               >
                 <option value="">Select</option>
@@ -40,6 +42,7 @@ function FieldGrid({ fields, values, onFieldChange }) {
               <input
                 value={values[field.id] ?? ""}
                 onChange={(event) => onFieldChange(field.id, event.target.value)}
+                className="audit-control"
                 style={styles.input}
                 type={field.type || "text"}
               />
@@ -77,7 +80,7 @@ export default function AuditSection({ section, values, tables, onFieldChange, o
   ];
 
   return (
-    <section id={section.id} style={styles.section}>
+    <section className="audit-section-card" id={section.id} style={styles.section}>
       <div style={styles.headingRow}>
         <h2 style={styles.heading}>{section.title}</h2>
       </div>
@@ -109,28 +112,28 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 16,
-    padding: 20,
-    border: "1px solid #dbe3ef",
-    borderRadius: 8,
+    padding: 24,
+    border: "1px solid #e2e8f0",
+    borderRadius: 16,
     background: "#fff",
-    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.04)",
+    boxShadow: "0 12px 35px rgba(15, 23, 42, 0.045)",
   },
   headingRow: {
-    padding: "12px 14px",
-    borderLeft: "4px solid #2563eb",
-    borderRadius: 6,
-    background: "#eff6ff",
+    padding: "0 0 15px",
+    borderBottom: "1px solid #edf1f6",
   },
   heading: {
     margin: 0,
     color: "#0f172a",
-    fontSize: 18,
+    fontSize: 17,
+    fontWeight: 700,
+    letterSpacing: "-.015em",
     lineHeight: 1.3,
   },
   fieldGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: 14,
+    gap: "18px 16px",
   },
   field: {
     display: "flex",
@@ -145,38 +148,38 @@ const styles = {
   },
   label: {
     color: "#334155",
-    fontSize: 14,
-    fontWeight: 700,
+    fontSize: 12,
+    fontWeight: 650,
   },
   subheading: {
     gridColumn: "1 / -1",
     margin: "8px 0 0",
     padding: "10px 12px",
     borderLeft: "4px solid #2563eb",
-    borderRadius: 6,
+    borderRadius: 10,
     color: "#0f172a",
     background: "#eff6ff",
-    fontSize: 18,
+    fontSize: 15,
     lineHeight: 1.35,
   },
   input: {
     width: "100%",
-    border: "1px solid #cbd5e1",
-    borderRadius: 5,
-    padding: "10px 11px",
+    border: "1px solid #d7dee9",
+    borderRadius: 10,
+    padding: "11px 12px",
     color: "#0f172a",
-    background: "#fff",
+    background: "#fbfcfe",
     outline: "none",
   },
   textarea: {
     width: "100%",
     minHeight: 88,
     resize: "vertical",
-    border: "1px solid #cbd5e1",
-    borderRadius: 5,
-    padding: "10px 11px",
+    border: "1px solid #d7dee9",
+    borderRadius: 10,
+    padding: "11px 12px",
     color: "#0f172a",
-    background: "#fff",
+    background: "#fbfcfe",
     outline: "none",
   },
   tables: {
