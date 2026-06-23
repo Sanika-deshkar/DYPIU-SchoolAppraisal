@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/auth/Login";
+import ResetPassword from "./pages/auth/ResetPassword";
 import AdministrativeDashboard from "./pages/administrative/AdministrativeDashboard";
 import DirectorDashboard from "./pages/director/DirectorDashboard";
 import ReviewDashboardPage from "./pages/review/ReviewDashboardPage";
@@ -20,6 +21,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/director/dashboard"
           element={<ProtectedRoute role="director"><DirectorDashboard /></ProtectedRoute>}

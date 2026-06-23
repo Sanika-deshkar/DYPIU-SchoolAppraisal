@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import apiClient, { getApiErrorMessage } from "../../api/client";
+import { getApiErrorMessage } from "../../api/client";
+import { login, requestPasswordReset } from "../../api/auth";
 import { dashboardForRole, normalizeUserProfile } from "../../api/submissions";
 import backgroundImage from "../../assets/images/dyp.jpeg";
 import iqacLogo from "../../assets/images/IQAS.png";
@@ -42,7 +43,7 @@ export default function Login() {
     setMessage("");
 
     try {
-      const { data } = await apiClient.post("/api/auth/login", { username: email, password: pw });
+      const { data } = await login(email, pw);
       const profile = normalizeUserProfile(data);
 
       if (!profile.token || !profile.role) {
@@ -68,7 +69,7 @@ export default function Login() {
     if (event.key === "Enter") handleLogin();
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     const email = normalizeEmail(username);
 
     if (!email) {
@@ -86,10 +87,14 @@ export default function Login() {
     setError("");
     setMessage("");
 
-    window.setTimeout(() => {
+    try {
+      const { data } = await requestPasswordReset(email);
+      setMessage(data?.message || "Password reset link sent. Please check your email.");
+    } catch (resetError) {
+      setError(getApiErrorMessage(resetError, "Could not send password reset link."));
+    } finally {
       setResetLoading(false);
-      setMessage("Password reset link request captured. Email integration will be connected later.");
-    }, 500);
+    }
   };
 
   return (
