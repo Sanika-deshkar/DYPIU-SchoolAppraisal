@@ -339,9 +339,3 @@ export const administrativeAuditModules = [
     ],
   },
 ];
-
-export const administrativeSummaryModule = {
-  id: "summary",
-  number: "",
-  title: "Summary",
-};

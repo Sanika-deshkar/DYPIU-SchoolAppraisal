@@ -757,13 +757,13 @@ function StatusBadge({ status }) {
 
 function LogoutModal({ onCancel, onConfirm }) {
   return (
-    <div style={styles.modalBackdrop} onClick={onCancel}>
-      <div style={styles.logoutModal} onClick={(event) => event.stopPropagation()}>
-        <div style={styles.modalTitle}>Confirm Logout</div>
-        <div style={styles.modalMeta}>You are about to leave the review dashboard.</div>
-        <div style={styles.modalActions}>
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-          <button type="button" className="btn btn-danger" onClick={onConfirm}>Logout</button>
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-title">Confirm Logout</div>
+        <div className="modal-text">You are about to leave School Appraisal. Any unsaved edits will be lost.</div>
+        <div className="modal-actions">
+          <button type="button" className="modal-cancel" onClick={onCancel}>Cancel</button>
+          <button type="button" className="modal-confirm" onClick={onConfirm}>Logout</button>
         </div>
       </div>
     </div>

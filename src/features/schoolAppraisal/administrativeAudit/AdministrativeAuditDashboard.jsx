@@ -1,4 +1,4 @@
-//main dashboard for administrative audit 2025-26 form, contains sidebar, header, summary metrics, and module panel with fields and tables
+// Main dashboard for the Administrative Audit 2025-26 form.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../../api/client";
@@ -8,7 +8,7 @@ import AuditTable from "../components/AuditTable";
 import { columnsWithSerial, serialColumnFor } from "../components/tableHelpers";
 import AdministrativeReportPanel from "./AdministrativeReportPanel";
 import AppSidebar from "../components/AppSidebar";
-import { administrativeAuditMeta, administrativeAuditModules, administrativeSummaryModule } from "./administrativeAuditConfig";
+import { administrativeAuditMeta, administrativeAuditModules } from "./administrativeAuditConfig";
 
 const emptyRowFor = (columns, index) => {
   const row = columnsWithSerial(columns).reduce((value, column) => {
@@ -69,12 +69,19 @@ const getUserProfile = () => ({
   email: sessionStorage.getItem("email") || sessionStorage.getItem("username") || "",
 });
 
+const editableValueFor = (value) => {
+  if (value == null) return "";
+  if (typeof value === "object") return String(value.value ?? value.text ?? "");
+  return String(value);
+};
+
 export default function AdministrativeAuditDashboard() {
   const navigate = useNavigate();
   const [activeModuleId, setActiveModuleId] = useState(administrativeAuditModules[0].id);
   const [reportMode, setReportMode] = useState(false);
   const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [submitStatus, setSubmitStatus] = useState("");
   const [status, setStatus] = useState("");
   const [loadingDraft, setLoadingDraft] = useState(true);
@@ -84,11 +91,12 @@ export default function AdministrativeAuditDashboard() {
   const [data, setData] = useState(buildInitialData);
 
   const activeModule = useMemo(
-    () => administrativeAuditModules.find((module) => module.id === activeModuleId) || administrativeSummaryModule,
+    () => administrativeAuditModules.find((module) => module.id === activeModuleId) || administrativeAuditModules[0],
     [activeModuleId],
   );
   const profile = getUserProfile();
-  const isSummary = activeModuleId === administrativeSummaryModule.id;
+  const activeModuleIndex = administrativeAuditModules.findIndex((module) => module.id === activeModule.id);
+  const isLastModule = activeModuleIndex === administrativeAuditModules.length - 1;
 
   useEffect(() => {
     let isActive = true;
@@ -148,7 +156,7 @@ export default function AdministrativeAuditDashboard() {
       ...current,
       tables: {
         ...current.tables,
-        [tableId]: current.tables[tableId].map((row, index) => (index === rowIndex ? { ...row, [column]: value } : row)),
+        [tableId]: (current.tables[tableId] || []).map((row, index) => (index === rowIndex ? { ...row, [column]: value } : row)),
       },
       lastSavedAt: new Date().toISOString(),
     }));
@@ -159,7 +167,10 @@ export default function AdministrativeAuditDashboard() {
       ...current,
       tables: {
         ...current.tables,
-        [table.id]: [...current.tables[table.id], emptyRowFor(table.columns, current.tables[table.id].length)],
+        [table.id]: [
+          ...(current.tables[table.id] || []),
+          emptyRowFor(table.columns, (current.tables[table.id] || []).length),
+        ],
       },
       lastSavedAt: new Date().toISOString(),
     }));
@@ -167,7 +178,7 @@ export default function AdministrativeAuditDashboard() {
 
   const deleteLastRow = (table) => {
     setData((current) => {
-      const nextRows = current.tables[table.id].slice(0, -1);
+      const nextRows = (current.tables[table.id] || []).slice(0, -1);
       return {
         ...current,
         tables: {
@@ -179,10 +190,30 @@ export default function AdministrativeAuditDashboard() {
     });
   };
 
-  const resetDraft = () => {
+  const resetDraft = async () => {
     const nextData = buildInitialData();
-    setData(nextData);
-    setStatus("Form cleared.");
+    setSavingDraft(true);
+    setStatus("");
+
+    try {
+      setData(nextData);
+      await saveDraft(
+        buildSubmissionPayload({
+          auditType: "administrative",
+          values: nextData.fields,
+          tables: nextData.tables,
+          attachments: [],
+        }),
+        { isUpdate: hasExistingSubmission },
+      );
+      setHasExistingSubmission(true);
+      setStatus("Administrative Audit reset successfully.");
+      setShowResetModal(false);
+    } catch (error) {
+      setStatus(getApiErrorMessage(error, "Could not reset the Administrative Audit."));
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const currentPayload = () =>
@@ -204,7 +235,7 @@ export default function AdministrativeAuditDashboard() {
       setHasExistingSubmission(true);
       setStatus("Draft saved successfully.");
 
-      const moduleIds = [...administrativeAuditModules.map((module) => module.id), administrativeSummaryModule.id];
+      const moduleIds = administrativeAuditModules.map((module) => module.id);
       const currentIndex = moduleIds.indexOf(activeModuleId);
       const nextModuleId = moduleIds[Math.min(currentIndex + 1, moduleIds.length - 1)];
 
@@ -292,7 +323,7 @@ export default function AdministrativeAuditDashboard() {
               </div>
             </div>
             <div className="admin-audit-actions" style={styles.headerActions}>
-              <button type="button" className="btn btn-secondary" onClick={resetDraft} disabled={loadingDraft || savingDraft}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowResetModal(true)} disabled={loadingDraft || savingDraft}>
                 Reset
               </button>
             </div>
@@ -312,20 +343,7 @@ export default function AdministrativeAuditDashboard() {
               <span style={styles.badge}>Server draft</span>
             </div>
 
-            {isSummary ? (
-              <SummaryPanel
-                modules={administrativeAuditModules}
-                data={data}
-                submitStatus={submitStatus}
-                onGenerateReport={() => {
-                  setReportMode(true);
-                  setPrintReportAfterRender(true);
-                }}
-                onSubmit={handleSubmit}
-                submitting={submitting}
-              />
-            ) : (
-              moduleBlocksFor(activeModule).map((block, index) => {
+            {moduleBlocksFor(activeModule).map((block, index) => {
               if (block.type === "fields") {
                 return <FieldGrid key={`fields-${index}`} fields={block.fields} data={data} onChange={setFieldValue} />;
               }
@@ -344,37 +362,63 @@ export default function AdministrativeAuditDashboard() {
                     <AuditTable
                       key={table.id}
                       table={table}
-                  rows={data.tables[table.id] || []}
-                  onCellChange={setCellValue}
-                  onAddRow={addRow}
-                  onDeleteLastRow={deleteLastRow}
-                  onUploadAttachment={async (file) => {
-                    const uploaded = await uploadAttachment(file);
-                    setData((current) => ({
-                      ...current,
-                      attachments: [...(current.attachments || []), uploaded],
-                      lastSavedAt: new Date().toISOString(),
-                    }));
-                    return uploaded;
-                  }}
-                />
+                      rows={data.tables[table.id] || []}
+                      onCellChange={setCellValue}
+                      onAddRow={addRow}
+                      onDeleteLastRow={deleteLastRow}
+                      onUploadAttachment={async (file) => {
+                        const uploaded = await uploadAttachment(file);
+                        setData((current) => ({
+                          ...current,
+                          attachments: [...(current.attachments || []), uploaded],
+                          lastSavedAt: new Date().toISOString(),
+                        }));
+                        return uploaded;
+                      }}
+                    />
                   ))}
                 </div>
               );
-              })
-            )}
+            })}
 
-            {!isSummary && (
-              <div style={styles.sectionFooter}>
+            <div style={styles.sectionFooter}>
+              {isLastModule ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setReportMode(true);
+                      setPrintReportAfterRender(true);
+                    }}
+                  >
+                    Generate Report
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={submitting || loadingDraft}>
+                    {submitting ? "Submitting..." : "Submit"}
+                  </button>
+                </>
+              ) : (
                 <button type="button" className="btn btn-primary" onClick={saveAndGoNext} disabled={savingDraft || loadingDraft}>
                   {savingDraft ? "Saving..." : "Save & Next"}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
+            {isLastModule && submitStatus && <div style={styles.submitStatus}>{submitStatus}</div>}
           </section>
         </main>
 
         {showLogoutModal && <LogoutModal onCancel={() => setShowLogoutModal(false)} onConfirm={handleLogout} />}
+        {showResetModal && (
+          <ConfirmModal
+            title="Confirm Reset"
+            message="This will clear the Administrative Audit form and replace the saved server draft. This action cannot be undone."
+            confirmLabel={savingDraft ? "Resetting..." : "Reset"}
+            onCancel={() => setShowResetModal(false)}
+            onConfirm={resetDraft}
+            disabled={savingDraft}
+          />
+        )}
       </div>
     </>
   );
@@ -418,7 +462,7 @@ function Sidebar({ activeModuleId, setActiveModuleId, profile, onLogout }) {
       badge="AA"
       roleTitle="Administrative Module"
       roleText="Registrar / HR / DSW / Dean Placements"
-      items={[...administrativeAuditModules, administrativeSummaryModule]}
+      items={administrativeAuditModules}
       activeId={activeModuleId}
       onChange={setActiveModuleId}
       profile={profile}
@@ -452,7 +496,7 @@ function FieldGrid({ fields, data, onChange }) {
             <span style={styles.fieldLabel}>{field.label}</span>
             {field.type === "textarea" ? (
               <textarea
-                value={data.fields[field.id] ?? ""}
+                value={editableValueFor(data.fields[field.id])}
                 onChange={(event) => onChange(field.id, event.target.value)}
                 className="audit-control"
                 style={styles.textarea}
@@ -460,11 +504,11 @@ function FieldGrid({ fields, data, onChange }) {
               />
             ) : (
               <input
-                value={data.fields[field.id] ?? ""}
+                value={editableValueFor(data.fields[field.id])}
                 onChange={(event) => onChange(field.id, event.target.value)}
                 className="audit-control"
                 style={styles.input}
-                type="text"
+                type={field.type || "text"}
               />
             )}
           </label>
@@ -474,58 +518,30 @@ function FieldGrid({ fields, data, onChange }) {
   );
 }
 
-function SummaryPanel({ modules, data, submitStatus, onGenerateReport, onSubmit, submitting }) {
-  const tableCount = modules.reduce((count, module) => count + moduleTablesFor(module).length, 0);
-  const rowCount = Object.values(data.tables).reduce((count, rows) => count + rows.length, 0);
-  const filledFields = Object.values(data.fields).filter((value) => String(value || "").trim()).length;
-
+function LogoutModal({ onCancel, onConfirm }) {
   return (
-    <div style={styles.summaryPanel}>
-      <div style={styles.summaryGrid}>
-        <div style={styles.summaryCard}>
-          <strong style={styles.summaryValue}>{modules.length}</strong>
-          <span>Sections</span>
-        </div>
-        <div style={styles.summaryCard}>
-          <strong style={styles.summaryValue}>{tableCount}</strong>
-          <span>Tables</span>
-        </div>
-        <div style={styles.summaryCard}>
-          <strong style={styles.summaryValue}>{rowCount}</strong>
-          <span>Rows</span>
-        </div>
-        <div style={styles.summaryCard}>
-          <strong style={styles.summaryValue}>{filledFields}</strong>
-          <span>Fields filled</span>
-        </div>
-      </div>
-
-      <div style={styles.summaryActions}>
-        <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>
-          Generate Report
-        </button>
-        <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={submitting}>
-          {submitting ? "Submitting..." : "Submit"}
-        </button>
-      </div>
-
-      {submitStatus && <div style={styles.submitStatus}>{submitStatus}</div>}
-    </div>
+    <ConfirmModal
+      title="Confirm Logout"
+      message="You are about to leave School Appraisal. Any unsaved edits will be lost."
+      confirmLabel="Logout"
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    />
   );
 }
 
-function LogoutModal({ onCancel, onConfirm }) {
+function ConfirmModal({ title, message, confirmLabel, onCancel, onConfirm, disabled = false }) {
   return (
-    <div style={styles.modalBackdrop} onClick={onCancel}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
-        <div style={styles.modalTitle}>Confirm Logout</div>
-        <div style={styles.modalText}>You are about to leave Administrative Audit. Any unsaved edits should already be autosaved locally.</div>
-        <div style={styles.modalActions}>
-          <button type="button" onClick={onCancel} style={styles.cancelButton}>
+    <div className="modal-backdrop" onClick={disabled ? undefined : onCancel}>
+      <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-title">{title}</div>
+        <div className="modal-text">{message}</div>
+        <div className="modal-actions">
+          <button type="button" onClick={onCancel} className="modal-cancel" disabled={disabled}>
             Cancel
           </button>
-          <button type="button" onClick={onConfirm} style={styles.confirmButton}>
-            Logout
+          <button type="button" onClick={onConfirm} className="modal-confirm" disabled={disabled}>
+            {confirmLabel}
           </button>
         </div>
       </div>
@@ -891,42 +907,10 @@ const styles = {
     flexDirection: "column",
     gap: 14,
   },
-  summaryPanel: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 12,
-  },
-  summaryCard: {
-    border: "1px solid #e5eaf2",
-    borderRadius: 13,
-    background: "linear-gradient(145deg, #f8fafc, #fff)",
-    padding: "18px 20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-    color: "#64748b",
-    fontSize: 14,
-    fontWeight: 900,
-    textTransform: "uppercase",
-  },
-  summaryValue: {
-    color: "#0f172a",
-    fontSize: 18,
-    lineHeight: 1,
-  },
-  summaryActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 10,
-  },
   sectionFooter: {
     display: "flex",
     justifyContent: "flex-end",
+    gap: 10,
     marginTop: 16,
     padding: "14px 16px",
     border: "1px solid #dbe3ef",

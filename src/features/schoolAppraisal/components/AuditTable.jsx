@@ -153,10 +153,10 @@ export default function AuditTable({
       </div>
 
       <div className="audit-table-card__footer">
-        <button type="button" className="btn btn-secondary" onClick={onAddRow}>
+        <button type="button" className="btn btn-secondary" onClick={() => onAddRow?.(table)}>
           Add Row
         </button>
-        <button type="button" className="btn btn-danger" onClick={onDeleteLastRow} disabled={rows.length === 1}>
+        <button type="button" className="btn btn-danger" onClick={() => onDeleteLastRow?.(table)} disabled={rows.length === 1}>
           Delete Last Row
         </button>
       </div>
