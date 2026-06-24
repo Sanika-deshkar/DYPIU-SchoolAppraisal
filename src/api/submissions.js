@@ -41,15 +41,26 @@ export const normalizeUserProfile = (payload = {}) => {
 
 export const normalizeDraft = (payload = {}, fallbackValues = {}, fallbackTables = {}) => {
   const draft = payload.data || payload.submission || payload;
+  const valuesData = draft.valuesData ?? draft.values ?? draft.fieldsData ?? draft.fields;
+  const tablesData = draft.tablesData ?? draft.tables;
 
   return {
+    id: draft.id || draft.submissionId || null,
+    exists: Boolean(
+      draft.id ||
+      draft.submissionId ||
+      valuesData ||
+      tablesData ||
+      draft.attachments ||
+      draft.status,
+    ),
     values: {
       ...fallbackValues,
-      ...safeJsonParse(draft.valuesData ?? draft.values ?? draft.fieldsData ?? draft.fields, {}),
+      ...safeJsonParse(valuesData, {}),
     },
     tables: {
       ...fallbackTables,
-      ...safeJsonParse(draft.tablesData ?? draft.tables, {}),
+      ...safeJsonParse(tablesData, {}),
     },
     attachments: safeJsonParse(draft.attachments, []),
   };
@@ -88,11 +99,28 @@ export const buildSubmissionPayload = ({ auditType, values, tables, attachments 
 export const fetchMyDraft = (auditType) =>
   apiClient.get("/api/submissions/my-draft", { params: { auditType } });
 
-export const saveDraft = (payload) =>
-  apiClient.post("/api/submissions/save-draft", payload);
+export const saveDraft = (payload, { isUpdate = false } = {}) =>
+  apiClient.request({
+    method: isUpdate ? "put" : "post",
+    url: "/api/submissions/save-draft",
+    data: payload,
+  });
 
-export const submitDraft = (payload) =>
-  apiClient.post("/api/submissions/submit", payload);
+export const submitDraft = (payload, { isUpdate = false } = {}) =>
+  apiClient.request({
+    method: isUpdate ? "put" : "post",
+    url: "/api/submissions/submit",
+    data: payload,
+  });
+
+export const updateSubmissionById = (id, payload) =>
+  apiClient.put(`/api/submissions/${id}`, payload);
+
+export const updateTableData = (tableName, submissionId, rows) =>
+  apiClient.put(
+    `/api/tables/${encodeURIComponent(tableName)}/submission/${encodeURIComponent(submissionId)}`,
+    rows,
+  );
 
 export const uploadAttachment = async (file) => {
   const formData = new FormData();

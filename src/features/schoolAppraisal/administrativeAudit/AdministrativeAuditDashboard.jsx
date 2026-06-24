@@ -80,6 +80,7 @@ export default function AdministrativeAuditDashboard() {
   const [loadingDraft, setLoadingDraft] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
   const [data, setData] = useState(buildInitialData);
 
   const activeModule = useMemo(
@@ -108,6 +109,7 @@ export default function AdministrativeAuditDashboard() {
           attachments: draft.attachments,
           lastSavedAt: new Date().toISOString(),
         });
+        setHasExistingSubmission(draft.exists);
       } catch (error) {
         if (isActive) setStatus(getApiErrorMessage(error, "Could not load your draft from the server."));
       } finally {
@@ -198,7 +200,8 @@ export default function AdministrativeAuditDashboard() {
 
     try {
       setData(nextData);
-      await saveDraft(currentPayload());
+      await saveDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
       setStatus("Draft saved successfully.");
 
       const moduleIds = [...administrativeAuditModules.map((module) => module.id), administrativeSummaryModule.id];
@@ -226,7 +229,8 @@ export default function AdministrativeAuditDashboard() {
     setSubmitStatus("");
 
     try {
-      await submitDraft(currentPayload());
+      await submitDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
       setData((current) => ({ ...current, submittedAt: new Date().toISOString(), lastSavedAt: new Date().toISOString() }));
       setSubmitStatus("Administrative Audit submitted successfully.");
     } catch (error) {

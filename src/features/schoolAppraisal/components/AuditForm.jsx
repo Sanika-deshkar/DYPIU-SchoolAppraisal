@@ -73,6 +73,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
   const [loadingDraft, setLoadingDraft] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
   const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
   const activeSectionIndex = Math.max(0, schema.sections.findIndex((section) => section.id === activeSectionId));
   const progress = activeSectionId === "summary" ? 100 : Math.round(((activeSectionIndex + 1) / schema.sections.length) * 100);
@@ -103,6 +104,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
         setValues(draft.values);
         setTables(draft.tables);
         setAttachments(draft.attachments);
+        setHasExistingSubmission(draft.exists);
       } catch (error) {
         if (isActive) setStatus(getApiErrorMessage(error, "Could not load your draft from the server."));
       } finally {
@@ -154,7 +156,8 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
     setStatus("");
 
     try {
-      await saveDraft(currentPayload());
+      await saveDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
       setStatus("Draft saved successfully.");
     } catch (error) {
       setStatus(getApiErrorMessage(error, "Could not save draft."));
@@ -168,7 +171,8 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
     setStatus("");
 
     try {
-      await saveDraft(currentPayload());
+      await saveDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
       setStatus("Draft saved successfully.");
 
       const sectionIds = [...schema.sections.map((section) => section.id), "summary"];
@@ -203,7 +207,8 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
     setSubmitStatus("");
 
     try {
-      await submitDraft(currentPayload());
+      await submitDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
       setSubmitStatus("Academic Audit submitted successfully.");
     } catch (error) {
       setSubmitStatus(getApiErrorMessage(error, "Could not submit Academic Audit."));
