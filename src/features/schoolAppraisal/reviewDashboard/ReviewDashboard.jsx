@@ -1,31 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "../../../api/client";
+import { fetchAllSubmissions, fetchSubmissionById, fetchSubmissionSnapshots, parseSubmissionFormData, reviewSubmission } from "../../../api/submissions";
 import universityLogo from "../../../assets/images/image.png";
 import AppSidebar from "../components/AppSidebar";
 import { columnsWithSerial } from "../components/tableHelpers";
 import { administrativeAuditModules } from "../administrativeAudit/administrativeAuditConfig";
 import { academicAudit2025Schema } from "../formSchemas";
-import {
-  REVIEW_NAV_ITEMS,
-  REVIEW_ROLE_CONFIG,
-  SCHOOL_GROUPS,
-  initialReviewSubmissions,
-} from "./reviewDashboardData";
 
-const STORAGE_KEY = "dypiu-school-appraisal:review-dashboard";
-const ACADEMIC_DRAFT_KEY = `dypiu-school-appraisal:${academicAudit2025Schema.id}:draft`;
-const ADMINISTRATIVE_DRAFT_KEY = "dypiu-school-appraisal:administrative-audit-2025-26";
+const REVIEW_NAV_ITEMS = [
+  { id: "overview", title: "Overview" },
+  { id: "academic", title: "Academic Audit" },
+  { id: "administrative", title: "Administrative Audit" },
+];
+
+const REVIEW_ROLE_CONFIG = {
+  "vice-chancellor": {
+    badge: "VC",
+    title: "Vice Chancellor Dashboard",
+    roleTitle: "Vice Chancellor",
+    roleText: "School Appraisal Review",
+  },
+  iqac: {
+    badge: "IQ",
+    title: "IQAC Dashboard",
+    roleTitle: "IQAC",
+    roleText: "School Appraisal Review",
+  },
+};
+
+const SCHOOL_GROUPS = {
+  engineering: "Engineering",
+  nonEngineering: "Non-Engineering",
+  all: "All Schools",
+};
 
 const statusLabels = {
   submitted: "Submitted",
   "under-review": "Under Review",
   approved: "Approved",
+  "sent-back": "Sent Back",
 };
 
 const statusStyles = {
   submitted: { color: "#1d4ed8", background: "#dbeafe", border: "#bfdbfe" },
   "under-review": { color: "#92400e", background: "#fef3c7", border: "#fde68a" },
   approved: { color: "#166534", background: "#dcfce7", border: "#bbf7d0" },
+  "sent-back": { color: "#991b1b", background: "#fee2e2", border: "#fecaca" },
 };
 
 const auditLabels = {
@@ -39,57 +60,8 @@ const groupTabs = [
   { id: "nonEngineering", label: "Non-Engineering" },
 ];
 
-const allowedReviewStatuses = new Set(["submitted", "under-review", "approved"]);
-const normalizeReviewStatus = (status) => allowedReviewStatuses.has(status) ? status : "submitted";
-
-const mergeSavedSubmissions = (baseSubmissions, savedSubmissions = {}) => {
-  const mergeAuditType = (auditType) => {
-    const savedById = new Map((savedSubmissions[auditType] || []).map((submission) => [submission.id, submission]));
-
-    return baseSubmissions[auditType].map((baseSubmission) => {
-      const savedSubmission = savedById.get(baseSubmission.id);
-      return {
-        ...baseSubmission,
-        status: normalizeReviewStatus(savedSubmission?.status || baseSubmission.status),
-        reviewedBy: savedSubmission?.reviewedBy,
-        reviewedOn: savedSubmission?.reviewedOn,
-      };
-    });
-  };
-
-  return {
-    academic: mergeAuditType("academic"),
-    administrative: mergeAuditType("administrative"),
-  };
-};
-
-const loadSubmissions = () => {
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) return mergeSavedSubmissions(initialReviewSubmissions);
-
-  try {
-    const sanitized = mergeSavedSubmissions(initialReviewSubmissions, JSON.parse(saved));
-    saveSubmissions(sanitized);
-    return sanitized;
-  } catch {
-    return mergeSavedSubmissions(initialReviewSubmissions);
-  }
-};
-
-const saveSubmissions = (submissions) => {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
-};
-
 const initialsFor = (name = "") => name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 const isAttachmentValue = (value) => value && typeof value === "object" && (value.url || value.name);
-const titleForSubmission = (submission = {}) =>
-  submission.title || submission.school || submission.schoolName || submission.roleName || "Audit Submission";
-const submittedByFor = (submission = {}) =>
-  submission.submittedBy || submission.submitterName || submission.submittedByName || submission.designation || "Submitted user";
-const groupLabelFor = (submission = {}) =>
-  submission.groupLabel || SCHOOL_GROUPS[submission.group] || (submission.auditType === "administrative" ? "Administrative Role" : "School");
-const sectionsForSubmission = (submission = {}) => Array.isArray(submission.sections) ? submission.sections : [];
-const attachmentsForSubmission = (submission = {}) => Array.isArray(submission.attachments) ? submission.attachments : [];
 
 const blocksFor = (section) =>
   section.blocks || [
@@ -97,34 +69,53 @@ const blocksFor = (section) =>
     ...(section.tables?.length ? [{ type: "tables", tables: section.tables }] : []),
   ];
 
-const loadSubmittedForm = (auditType) => {
-  const storageKey = auditType === "academic" ? ACADEMIC_DRAFT_KEY : ADMINISTRATIVE_DRAFT_KEY;
-  const saved = window.localStorage.getItem(storageKey);
-  const fallback = { values: {}, tables: {}, hasSavedData: false };
-
-  if (!saved) return fallback;
-
-  try {
-    const parsed = JSON.parse(saved);
-    return auditType === "academic"
-      ? { values: parsed.values || {}, tables: parsed.tables || {}, hasSavedData: true }
-      : { values: parsed.fields || {}, tables: parsed.tables || {}, hasSavedData: true };
-  } catch {
-    return fallback;
-  }
-};
-
 const sectionsForAudit = (auditType) => auditType === "academic" ? academicAudit2025Schema.sections : administrativeAuditModules;
+
+const normalizeAuditType = (value = "") => String(value).toLowerCase().includes("admin") ? "administrative" : "academic";
+const normalizeStatus = (value = "submitted") => String(value).toLowerCase().replaceAll("_", "-");
+const backendStatusFor = (status) => status.toUpperCase().replaceAll("-", "_");
+const responseList = (payload) => {
+  const data = payload?.data ?? payload;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.content)) return data.content;
+  if (Array.isArray(data?.submissions)) return data.submissions;
+  if (Array.isArray(data?.items)) return data.items;
+  return [];
+};
+const submissionPayload = (payload) => payload?.data?.submission || payload?.data || payload;
+
+const normalizeSubmission = (submission = {}) => {
+  const auditType = normalizeAuditType(submission.auditType || submission.type);
+  const formData = parseSubmissionFormData(submission);
+
+  return {
+    ...submission,
+    ...formData,
+    id: submission.id || submission.submissionId,
+    auditType,
+    group: submission.group || submission.schoolGroup || "all",
+    school: submission.school || submission.schoolName || submission.department || "School",
+    submittedBy: submission.submittedBy || submission.createdBy || submission.userName || submission.user?.name || "-",
+    submittedOn: submission.submittedOn || submission.submittedAt || submission.createdAt || new Date().toISOString(),
+    sections: submission.sections || sectionsForAudit(auditType),
+    attachments: formData.attachments.length ? formData.attachments : submission.attachments || [],
+    status: normalizeStatus(submission.status),
+    remarks: submission.remarks || "",
+    snapshots: submission.snapshots || [],
+  };
+};
 
 export default function ReviewDashboard() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState("overview");
   const [activeGroup, setActiveGroup] = useState({ academic: "all", administrative: "all" });
-  const [submissions, setSubmissions] = useState(loadSubmissions);
+  const [submissions, setSubmissions] = useState({ academic: [], administrative: [] });
   const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(true);
+  const [loadingSubmissionId, setLoadingSubmissionId] = useState("");
+  const [reviewingStatus, setReviewingStatus] = useState("");
+  const [error, setError] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [printReviewAfterRender, setPrintReviewAfterRender] = useState(false);
-  const [reportMode, setReportMode] = useState(false);
   const role = sessionStorage.getItem("role") || "iqac";
   const roleConfig = REVIEW_ROLE_CONFIG[role] || REVIEW_ROLE_CONFIG.iqac;
   const profile = {
@@ -137,6 +128,35 @@ export default function ReviewDashboard() {
   const allSubmissions = useMemo(() => [...submissions.academic, ...submissions.administrative], [submissions]);
   const metrics = useMemo(() => buildMetrics(allSubmissions), [allSubmissions]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadSubmissions = async () => {
+      setLoadingSubmissions(true);
+      setError("");
+
+      try {
+        const { data } = await fetchAllSubmissions();
+        const next = { academic: [], administrative: [] };
+        responseList(data).map(normalizeSubmission).forEach((submission) => {
+          next[submission.auditType].push(submission);
+        });
+
+        if (isActive) setSubmissions(next);
+      } catch (loadError) {
+        if (isActive) setError(getApiErrorMessage(loadError, "Could not load submissions for review."));
+      } finally {
+        if (isActive) setLoadingSubmissions(false);
+      }
+    };
+
+    loadSubmissions();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   const updateSubmission = (auditType, submissionId, patch) => {
     setSubmissions((current) => {
       const next = {
@@ -145,7 +165,6 @@ export default function ReviewDashboard() {
           submission.id === submissionId ? { ...submission, ...patch } : submission
         ),
       };
-      saveSubmissions(next);
       return next;
     });
 
@@ -154,29 +173,52 @@ export default function ReviewDashboard() {
     );
   };
 
-  useEffect(() => {
-    if (!printReviewAfterRender) return undefined;
+  const openSubmission = async (submission) => {
+    setLoadingSubmissionId(submission.id);
+    setError("");
 
-    const timer = window.setTimeout(() => {
-      window.print();
-      setPrintReviewAfterRender(false);
-      setReportMode(false);
-    }, 150);
+    try {
+      const [{ data: detailData }, { data: snapshotsData }] = await Promise.all([
+        fetchSubmissionById(submission.id),
+        fetchSubmissionSnapshots(submission.id),
+      ]);
+      const detailedSubmission = normalizeSubmission({
+        ...submission,
+        ...submissionPayload(detailData),
+        snapshots: responseList(snapshotsData),
+      });
+      setSelectedSubmission(detailedSubmission);
+    } catch (openError) {
+      setError(getApiErrorMessage(openError, "Could not load submission details."));
+    } finally {
+      setLoadingSubmissionId("");
+    }
+  };
 
-    return () => window.clearTimeout(timer);
-  }, [printReviewAfterRender]);
-
-  const confirmApprove = (submission) => {
-    if (submission.status === "approved") return;
-
-    const ok = window.confirm(`Do you want to approve ${titleForSubmission(submission)} ${auditLabels[submission.auditType]}?`);
+  const confirmStatusChange = async (submission, status) => {
+    const action = status === "approved" ? "approve" : "send back";
+    const ok = window.confirm(`Do you want to ${action} ${submission.school} ${auditLabels[submission.auditType]}?`);
     if (!ok) return;
 
-    updateSubmission(submission.auditType, submission.id, {
-      status: "approved",
-      reviewedBy: profile.name,
-      reviewedOn: new Date().toISOString(),
-    });
+    setReviewingStatus(status);
+    setError("");
+
+    try {
+      await reviewSubmission(submission.id, {
+        status: backendStatusFor(status),
+        remarks: submission.remarks,
+      });
+
+      updateSubmission(submission.auditType, submission.id, {
+        status,
+        reviewedBy: profile.name,
+        reviewedOn: new Date().toISOString(),
+      });
+    } catch (reviewError) {
+      setError(getApiErrorMessage(reviewError, "Could not update review status."));
+    } finally {
+      setReviewingStatus("");
+    }
   };
 
   const handleLogout = () => {
@@ -199,7 +241,6 @@ export default function ReviewDashboard() {
           activeId={activeView}
           onChange={(viewId) => {
             setSelectedSubmission(null);
-            setReportMode(false);
             setActiveView(viewId);
           }}
           profile={profile}
@@ -225,27 +266,26 @@ export default function ReviewDashboard() {
           {selectedSubmission ? (
             <FullFormReview
               submission={selectedSubmission}
-              reportMode={reportMode}
-              onBack={() => {
-                setReportMode(false);
-                setSelectedSubmission(null);
-              }}
-              onApprove={() => confirmApprove(selectedSubmission)}
-              onGenerateReport={() => {
-                setReportMode(true);
-                setPrintReviewAfterRender(true);
-              }}
+              onBack={() => setSelectedSubmission(null)}
+              onRemarksChange={(remarks) => updateSubmission(selectedSubmission.auditType, selectedSubmission.id, { remarks })}
+              onApprove={() => confirmStatusChange(selectedSubmission, "approved")}
+              onSendBack={() => confirmStatusChange(selectedSubmission, "sent-back")}
+              reviewingStatus={reviewingStatus}
             />
           ) : activeView === "overview" ? (
             <OverviewPanel
               metrics={metrics}
               submissions={allSubmissions}
+              loading={loadingSubmissions}
               onOpen={(submission) => {
                 setActiveView(submission.auditType);
-                setSelectedSubmission(submission);
+                openSubmission(submission);
               }}
             />
           ) : null}
+
+          {error && <div style={styles.errorNotice}>{error}</div>}
+          {loadingSubmissionId && <div style={styles.emptyDraftNotice}>Loading submission details...</div>}
 
           {!selectedSubmission && activeView === "academic" && (
             <AuditReviewPanel
@@ -253,7 +293,8 @@ export default function ReviewDashboard() {
               submissions={submissions.academic}
               activeGroup={activeGroup.academic}
               onGroupChange={(group) => setActiveGroup((current) => ({ ...current, academic: group }))}
-              onOpen={setSelectedSubmission}
+              onOpen={openSubmission}
+              loading={loadingSubmissions}
             />
           )}
 
@@ -263,7 +304,8 @@ export default function ReviewDashboard() {
               submissions={submissions.administrative}
               activeGroup={activeGroup.administrative}
               onGroupChange={(group) => setActiveGroup((current) => ({ ...current, administrative: group }))}
-              onOpen={setSelectedSubmission}
+              onOpen={openSubmission}
+              loading={loadingSubmissions}
             />
           )}
         </main>
@@ -278,15 +320,15 @@ function buildMetrics(submissions) {
   return submissions.reduce(
     (metrics, submission) => {
       metrics.total += 1;
-      metrics[submission.status] += 1;
-      metrics[submission.auditType] += 1;
+      if (metrics[submission.status] != null) metrics[submission.status] += 1;
+      if (metrics[submission.auditType] != null) metrics[submission.auditType] += 1;
       return metrics;
     },
-    { total: 0, submitted: 0, "under-review": 0, approved: 0, academic: 0, administrative: 0 }
+    { total: 0, submitted: 0, "under-review": 0, approved: 0, "sent-back": 0, academic: 0, administrative: 0 }
   );
 }
 
-function OverviewPanel({ metrics, submissions, onOpen }) {
+function OverviewPanel({ metrics, submissions, loading, onOpen }) {
   const pendingSubmissions = submissions.filter((submission) => submission.status !== "approved");
 
   return (
@@ -299,8 +341,10 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
         <MetricCard label="Total forms" value={metrics.total} />
         <MetricCard label="Pending review" value={metrics.submitted + metrics["under-review"]} />
         <MetricCard label="Approved" value={metrics.approved} />
-        <MetricCard label="Audit types" value="2" />
+        <MetricCard label="Sent back" value={metrics["sent-back"]} />
       </div>
+
+      {loading && <div style={styles.emptyDraftNotice}>Loading submissions...</div>}
 
       <div style={styles.splitGrid}>
         <div style={styles.card}>
@@ -310,7 +354,6 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
             <SummaryRow label="Administrative Audit" value={metrics.administrative} />
             <SummaryRow label="Engineering Schools" value="4" />
             <SummaryRow label="Non-Engineering Schools" value="4" />
-            <SummaryRow label="Administrative Submitters" value={metrics.administrative} />
           </div>
         </div>
 
@@ -320,7 +363,7 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
             {pendingSubmissions.slice(0, 6).map((submission) => (
               <button key={submission.id} type="button" style={styles.queueItem} onClick={() => onOpen(submission)}>
                 <span>
-                  <strong>{titleForSubmission(submission)}</strong>
+                  <strong>{submission.school}</strong>
                   <small>{auditLabels[submission.auditType]}</small>
                 </span>
                 <StatusBadge status={submission.status} />
@@ -333,18 +376,13 @@ function OverviewPanel({ metrics, submissions, onOpen }) {
   );
 }
 
-function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, onOpen }) {
-  const isAcademic = auditType === "academic";
-  const filtered = isAcademic && activeGroup !== "all"
-    ? submissions.filter((submission) => submission.group === activeGroup)
-    : submissions;
-  const counts = isAcademic
-    ? {
-        all: submissions.length,
-        engineering: submissions.filter((submission) => submission.group === "engineering").length,
-        nonEngineering: submissions.filter((submission) => submission.group === "nonEngineering").length,
-      }
-    : {};
+function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, onOpen, loading }) {
+  const filtered = activeGroup === "all" ? submissions : submissions.filter((submission) => submission.group === activeGroup);
+  const counts = {
+    all: submissions.length,
+    engineering: submissions.filter((submission) => submission.group === "engineering").length,
+    nonEngineering: submissions.filter((submission) => submission.group === "nonEngineering").length,
+  };
 
   return (
     <section style={styles.panel}>
@@ -352,12 +390,26 @@ function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, 
         <div style={styles.blueHeading}>
           <h2 style={styles.sectionTitle}>{auditLabels[auditType]} Reviews</h2>
         </div>
-        <span style={styles.schoolCount}>{filtered.length} {isAcademic ? "schools" : "submissions"}</span>
+        <span style={styles.schoolCount}>{filtered.length} schools</span>
       </div>
 
-      {isAcademic ? <SchoolGroupTabs activeGroup={activeGroup} counts={counts} onGroupChange={onGroupChange} /> : null}
+      <div style={styles.tabs} role="tablist" aria-label={`${auditLabels[auditType]} school groups`}>
+        {groupTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            style={{ ...styles.tab, ...(activeGroup === tab.id ? styles.activeTab : {}) }}
+            onClick={() => onGroupChange(tab.id)}
+          >
+            {tab.label}
+            <span style={styles.tabCount}>{counts[tab.id]}</span>
+          </button>
+        ))}
+      </div>
 
       <div style={styles.reviewList}>
+        {loading && <div style={styles.emptyDraftNotice}>Loading submissions...</div>}
+        {!loading && !filtered.length && <div style={styles.emptyDraftNotice}>No {auditLabels[auditType]} submissions found.</div>}
         {filtered.map((submission) => (
           <SubmissionCard
             key={submission.id}
@@ -370,39 +422,15 @@ function AuditReviewPanel({ auditType, submissions, activeGroup, onGroupChange, 
   );
 }
 
-function SchoolGroupTabs({ activeGroup, counts, onGroupChange }) {
-  return (
-    <div style={styles.tabs} role="tablist" aria-label="Academic Audit school groups">
-      {groupTabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          style={{ ...styles.tab, ...(activeGroup === tab.id ? styles.activeTab : {}) }}
-          onClick={() => onGroupChange(tab.id)}
-        >
-          {tab.label}
-          <span style={styles.tabCount}>{counts[tab.id]}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function SubmissionCard({ submission, onOpen }) {
-  const title = titleForSubmission(submission);
-  const submittedBy = submittedByFor(submission);
-  const groupLabel = groupLabelFor(submission);
-  const sections = sectionsForSubmission(submission);
-  const attachments = attachmentsForSubmission(submission);
-
   return (
     <article style={styles.submissionCard}>
       <div style={styles.submissionTop}>
-        <div style={styles.schoolAvatar}>{initialsFor(title)}</div>
+        <div style={styles.schoolAvatar}>{initialsFor(submission.school)}</div>
         <div style={styles.submissionTitleBlock}>
-          <h3 style={styles.schoolName}>{title}</h3>
+          <h3 style={styles.schoolName}>{submission.school}</h3>
           <p style={styles.schoolMeta}>
-            {groupLabel} - {submittedBy}
+            {SCHOOL_GROUPS[submission.group]} - {submission.submittedBy}
           </p>
         </div>
         <StatusBadge status={submission.status} />
@@ -410,8 +438,8 @@ function SubmissionCard({ submission, onOpen }) {
 
       <div style={styles.submissionInfoGrid}>
         <InfoPill label="Submitted on" value={formatDate(submission.submittedOn)} />
-        <InfoPill label="Sections" value={sections.length} />
-        <InfoPill label="Attachments" value={attachments.length} />
+        <InfoPill label="Sections" value={submission.sections.length} />
+        <InfoPill label="Attachments" value={submission.attachments.length} />
       </div>
 
       <div style={styles.cardActions}>
@@ -421,56 +449,47 @@ function SubmissionCard({ submission, onOpen }) {
   );
 }
 
-function FullFormReview({ submission, reportMode, onBack, onApprove, onGenerateReport }) {
-  const submittedForm = loadSubmittedForm(submission.auditType);
+function FullFormReview({ submission, onBack, onRemarksChange, onApprove, onSendBack, reviewingStatus }) {
+  const submittedForm = {
+    values: submission.values || {},
+    tables: submission.tables || {},
+    hasSavedData: submission.hasSavedData,
+  };
   const sections = sectionsForAudit(submission.auditType);
-  const title = titleForSubmission(submission);
-  const submittedBy = submittedByFor(submission);
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const isLastSection = activeSectionIndex === sections.length - 1;
-  const isApproved = submission.status === "approved";
+  const hasRemarks = Boolean(submission.remarks.trim());
   const goToPreviousSection = () => setActiveSectionIndex((index) => Math.max(0, index - 1));
   const goToNextSection = () => setActiveSectionIndex((index) => Math.min(sections.length - 1, index + 1));
 
   return (
     <section style={styles.fullReviewPage}>
-      <div
-        className="full-review-header-print"
-        style={{
-          ...styles.fullReviewHeader,
-          ...(reportMode ? { gridTemplateColumns: "minmax(0, 1fr) auto" } : {}),
-        }}
-      >
-        {!reportMode && (
-          <button type="button" className="btn btn-secondary review-dashboard-print-hidden" onClick={onBack}>
-            Back
-          </button>
-        )}
+      <div style={styles.fullReviewHeader}>
+        <button type="button" className="btn btn-secondary" onClick={onBack}>
+          Back
+        </button>
         <div style={styles.fullReviewTitleBlock}>
           <p style={styles.kicker}>{auditLabels[submission.auditType]}</p>
-          <h2 style={styles.fullReviewTitle}>{title}</h2>
-          <p style={styles.modalMeta}>{submittedBy} - Submitted {formatDate(submission.submittedOn)}</p>
+          <h2 style={styles.fullReviewTitle}>{submission.school}</h2>
+          <p style={styles.modalMeta}>{submission.submittedBy} - Submitted {formatDate(submission.submittedOn)}</p>
         </div>
         <StatusBadge status={submission.status} />
       </div>
 
-      {!reportMode && (
-        <SectionReviewNav
-          sections={sections}
-          activeIndex={activeSectionIndex}
-          onChange={setActiveSectionIndex}
-        />
-      )}
+      <SectionReviewNav
+        sections={sections}
+        activeIndex={activeSectionIndex}
+        onChange={setActiveSectionIndex}
+      />
 
       <SubmittedFormViewer
         sections={sections}
         formData={submittedForm}
         auditType={submission.auditType}
         activeSectionIndex={activeSectionIndex}
-        showAllSections={reportMode}
       />
 
-      {!reportMode && <div className="review-dashboard-print-hidden" style={styles.fullReviewActions}>
+      <div style={styles.fullReviewActions}>
         {!isLastSection ? (
           <div style={styles.reviewPager}>
             <button type="button" className="btn btn-secondary" onClick={goToPreviousSection} disabled={activeSectionIndex === 0}>
@@ -482,18 +501,42 @@ function FullFormReview({ submission, reportMode, onBack, onApprove, onGenerateR
           </div>
         ) : (
           <div style={styles.finalReviewPanel}>
+            <label style={styles.remarksLabel}>
+              Review Remarks
+              <textarea
+                value={submission.remarks}
+                onChange={(event) => onRemarksChange(event.target.value)}
+                placeholder="Write remarks before approving or sending back"
+                style={{ ...styles.remarksInput, minHeight: 120 }}
+              />
+            </label>
             <div style={styles.finalActionRow}>
               <span style={styles.reviewHint}>
-                {isApproved ? "This form is approved. Report generation is still available." : "Review the last section before generating report or approving."}
+                Approve and Send Back are enabled after remarks are written.
               </span>
               <div style={styles.cardActions}>
-                <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>Generate Report</button>
-                {!isApproved && <button type="button" className="btn btn-primary" onClick={onApprove}>Approve</button>}
+                <button type="button" className="btn btn-primary" onClick={onApprove} disabled={!hasRemarks || Boolean(reviewingStatus)}>
+                  {reviewingStatus === "approved" ? "Approving..." : "Approve"}
+                </button>
+                <button type="button" className="btn btn-danger" onClick={onSendBack} disabled={!hasRemarks || Boolean(reviewingStatus)}>
+                  {reviewingStatus === "sent-back" ? "Sending..." : "Send Back"}
+                </button>
               </div>
             </div>
+            {!!submission.snapshots?.length && (
+              <div style={styles.snapshotPanel}>
+                <h3 style={styles.cardTitle}>Version History</h3>
+                {submission.snapshots.map((snapshot, index) => (
+                  <div key={snapshot.id || index} style={styles.summaryRow}>
+                    <span>{snapshot.status || snapshot.action || `Snapshot ${index + 1}`}</span>
+                    <strong>{formatDate(snapshot.createdAt || snapshot.createdOn || snapshot.timestamp || new Date())}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
-      </div>}
+      </div>
     </section>
   );
 }
@@ -516,9 +559,8 @@ function SectionReviewNav({ sections, activeIndex, onChange }) {
   );
 }
 
-function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex, showAllSections = false }) {
+function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex }) {
   const activeSection = sections[activeSectionIndex] || sections[0];
-  const visibleSections = showAllSections ? sections : activeSection ? [activeSection] : [];
 
   return (
     <div style={styles.formViewer}>
@@ -528,18 +570,18 @@ function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex
         </div>
       )}
 
-      {visibleSections.map((section) => (
-        <section key={section.id} style={styles.reviewSection}>
+      {activeSection && (
+        <section key={activeSection.id} style={styles.reviewSection}>
           <h3 style={styles.reviewSectionTitle}>
-            {section.number ? `${section.number}. ${section.title}` : section.title}
+            {activeSection.number ? `${activeSection.number}. ${activeSection.title}` : activeSection.title}
           </h3>
-          {section.note && <p style={styles.reviewSectionNote}>{section.note}</p>}
+          {activeSection.note && <p style={styles.reviewSectionNote}>{activeSection.note}</p>}
 
-          {blocksFor(section).map((block, blockIndex) => {
+          {blocksFor(activeSection).map((block, blockIndex) => {
             if (block.type === "fields") {
               return (
                 <ReadOnlyFieldGrid
-                  key={`${section.id}-fields-${blockIndex}`}
+                  key={`${activeSection.id}-fields-${blockIndex}`}
                   fields={block.fields}
                   values={formData.values}
                 />
@@ -548,14 +590,14 @@ function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex
 
             if (block.type === "text") {
               return (
-                <p key={`${section.id}-text-${blockIndex}`} style={styles.reviewText}>
+                <p key={`${activeSection.id}-text-${blockIndex}`} style={styles.reviewText}>
                   {block.text}
                 </p>
               );
             }
 
             return (
-              <div key={`${section.id}-tables-${blockIndex}`} style={styles.reviewTables}>
+              <div key={`${activeSection.id}-tables-${blockIndex}`} style={styles.reviewTables}>
                 {block.tables.map((table) => (
                   <ReadOnlyTable
                     key={table.id}
@@ -568,7 +610,7 @@ function SubmittedFormViewer({ sections, formData, auditType, activeSectionIndex
             );
           })}
         </section>
-      ))}
+      )}
     </div>
   );
 }
@@ -715,17 +757,13 @@ function StatusBadge({ status }) {
 
 function LogoutModal({ onCancel, onConfirm }) {
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-        <div className="modal-title">Confirm Logout</div>
-        <div className="modal-text">You are about to leave School Appraisal. Any unsaved edits will be lost.</div>
-        <div className="modal-actions">
-          <button type="button" onClick={onCancel} className="modal-cancel">
-            Cancel
-          </button>
-          <button type="button" onClick={onConfirm} className="modal-confirm">
-            Logout
-          </button>
+    <div style={styles.modalBackdrop} onClick={onCancel}>
+      <div style={styles.logoutModal} onClick={(event) => event.stopPropagation()}>
+        <div style={styles.modalTitle}>Confirm Logout</div>
+        <div style={styles.modalMeta}>You are about to leave the review dashboard.</div>
+        <div style={styles.modalActions}>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+          <button type="button" className="btn btn-danger" onClick={onConfirm}>Logout</button>
         </div>
       </div>
     </div>
@@ -741,12 +779,8 @@ function PrintStyles() {
       }
       @media print {
         .app-sidebar,
-        .review-dashboard-print-hidden {
+        .btn {
           display: none !important;
-        }
-        .full-review-header-print {
-          position: static !important;
-          box-shadow: none !important;
         }
         .review-dashboard-shell {
           display: block !important;
@@ -760,9 +794,6 @@ function PrintStyles() {
         body {
           background: #fff !important;
         }
-        .review-dashboard-main section {
-          break-inside: auto;
-        }
       }
       .review-dashboard-main .btn:disabled {
         opacity: .5;
@@ -775,12 +806,7 @@ function PrintStyles() {
 }
 
 function formatDate(value) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
 
 const styles = {
@@ -871,7 +897,7 @@ const styles = {
     margin: 0,
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 800,
     lineHeight: 1.25,
   },
   schoolCount: {
@@ -882,7 +908,7 @@ const styles = {
     borderRadius: 999,
     padding: "8px 12px",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
   },
   metricGrid: {
     display: "grid",
@@ -899,7 +925,7 @@ const styles = {
     gap: 5,
     color: "#64748b",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
     textTransform: "uppercase",
   },
   splitGrid: {
@@ -918,7 +944,7 @@ const styles = {
     margin: "0 0 14px",
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 800,
   },
   auditSummaryRows: {
     display: "flex",
@@ -969,7 +995,7 @@ const styles = {
     gap: 8,
     cursor: "pointer",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
     fontFamily: "inherit",
   },
   activeTab: {
@@ -1017,7 +1043,7 @@ const styles = {
     color: "#fff",
     background: "linear-gradient(135deg, #2563eb, #0ea5e9)",
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 900,
   },
   submissionTitleBlock: {
     flex: 1,
@@ -1027,7 +1053,7 @@ const styles = {
     margin: 0,
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 800,
     lineHeight: 1.35,
   },
   schoolMeta: {
@@ -1040,7 +1066,7 @@ const styles = {
     borderRadius: 999,
     padding: "6px 10px",
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 900,
     whiteSpace: "nowrap",
   },
   submissionInfoGrid: {
@@ -1058,6 +1084,27 @@ const styles = {
     gap: 4,
     color: "#64748b",
     fontSize: 12,
+  },
+  remarksLabel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: 800,
+  },
+  remarksInput: {
+    width: "100%",
+    minHeight: 82,
+    border: "1px solid #cbd5e1",
+    borderRadius: 10,
+    padding: "10px 11px",
+    color: "#0f172a",
+    background: "#fff",
+    outline: "none",
+    resize: "vertical",
+    fontSize: 14,
+    lineHeight: 1.5,
   },
   cardActions: {
     display: "flex",
@@ -1091,7 +1138,7 @@ const styles = {
     margin: "0 0 5px",
     color: "#0f172a",
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 900,
     lineHeight: 1.25,
   },
   sectionNav: {
@@ -1115,7 +1162,7 @@ const styles = {
     color: "#334155",
     padding: "9px 12px",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 900,
     cursor: "pointer",
     fontFamily: "inherit",
   },
@@ -1159,7 +1206,7 @@ const styles = {
   reviewHint: {
     color: "#64748b",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
   },
   modalBackdrop: {
     position: "fixed",
@@ -1217,37 +1264,52 @@ const styles = {
     color: "#92400e",
     padding: "12px 14px",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
     lineHeight: 1.5,
+  },
+  errorNotice: {
+    border: "1px solid #fecaca",
+    borderRadius: 10,
+    background: "#fef2f2",
+    color: "#991b1b",
+    padding: "12px 14px",
+    fontSize: 14,
+    fontWeight: 800,
+    lineHeight: 1.5,
+  },
+  snapshotPanel: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
+    background: "#f8fafc",
+    padding: 14,
   },
   reviewSection: {
     border: "1px solid #dbe3ef",
-    borderRadius: 16,
+    borderRadius: 12,
     background: "#fff",
-    padding: 24,
-    boxShadow: "0 12px 35px rgba(15, 23, 42, 0.045)",
+    padding: 16,
   },
   reviewSectionTitle: {
     margin: "0 0 14px",
-    padding: "0 0 15px",
-    borderBottom: "1px solid #edf1f6",
+    padding: "12px 14px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
     color: "#0f172a",
-    fontSize: 17,
-    fontWeight: 700,
-    letterSpacing: "-.015em",
-    lineHeight: 1.3,
+    fontSize: 18,
+    fontWeight: 900,
   },
   reviewSectionNote: {
     margin: "-6px 0 14px",
     color: "#475569",
-    fontSize: 12,
-    fontWeight: 600,
+    fontSize: 14,
+    fontWeight: 800,
   },
   reviewText: {
     margin: "0 0 14px",
     color: "#0f172a",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 800,
   },
   reviewTables: {
     display: "flex",
@@ -1262,15 +1324,10 @@ const styles = {
   },
   reviewSubheading: {
     gridColumn: "1 / -1",
-    margin: "8px 0 0",
-    padding: "10px 12px",
-    borderLeft: "4px solid #2563eb",
-    borderRadius: 10,
+    margin: "4px 0 0",
     color: "#0f172a",
-    background: "#eff6ff",
-    fontSize: 15,
-    fontWeight: 700,
-    lineHeight: 1.35,
+    fontSize: 18,
+    fontWeight: 900,
   },
   readOnlyField: {
     border: "1px solid #e2e8f0",
@@ -1279,9 +1336,9 @@ const styles = {
     padding: 10,
   },
   readOnlyLabel: {
-    color: "#334155",
-    fontSize: 12,
-    fontWeight: 650,
+    color: "#64748b",
+    fontSize: 14,
+    fontWeight: 900,
     marginBottom: 5,
   },
   readOnlyValue: {
@@ -1292,25 +1349,19 @@ const styles = {
   },
   readOnlyTableBlock: {
     marginTop: 8,
-    border: "1px solid #dbe3ef",
-    borderRadius: 13,
-    background: "#fff",
-    overflow: "hidden",
-    boxShadow: "0 5px 18px rgba(15, 23, 42, .035)",
   },
   readOnlyTableTitle: {
-    margin: 0,
-    padding: "15px 17px",
-    borderBottom: "1px solid #e8edf4",
-    background: "#f8fafc",
+    margin: "0 0 8px",
+    padding: "10px 12px",
+    borderLeft: "4px solid #2563eb",
+    borderRadius: 6,
+    background: "#eff6ff",
     color: "#0f172a",
-    fontSize: 14,
-    fontWeight: 700,
-    lineHeight: 1.35,
+    fontSize: 18,
+    fontWeight: 900,
   },
   readOnlyNotes: {
-    margin: 0,
-    padding: "0 14px 12px",
+    margin: "0 0 8px",
     color: "#334155",
     fontSize: 14,
     lineHeight: 1.6,
@@ -1324,23 +1375,20 @@ const styles = {
     borderCollapse: "collapse",
   },
   readOnlyTh: {
-    padding: "11px 12px",
-    borderBottom: "1px solid #dbe3ef",
-    borderRight: "1px solid #e5edf7",
-    background: "#f8fafc",
+    padding: "9px 10px",
+    border: "1px solid #cbd5e1",
+    background: "#eef4fb",
     color: "#334155",
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: ".025em",
+    fontSize: 14,
+    fontWeight: 900,
     textAlign: "left",
     verticalAlign: "top",
   },
   readOnlyTd: {
     padding: "9px 10px",
-    borderBottom: "1px solid #edf2f7",
-    borderRight: "1px solid #edf2f7",
+    border: "1px solid #e2e8f0",
     color: "#0f172a",
-    fontSize: 12.5,
+    fontSize: 14,
     verticalAlign: "top",
     whiteSpace: "pre-wrap",
   },
@@ -1352,7 +1400,7 @@ const styles = {
   attachmentLink: {
     color: "#2563eb",
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: 900,
     textDecoration: "none",
   },
   mutedText: {

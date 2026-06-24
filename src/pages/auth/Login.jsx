@@ -1,46 +1,14 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "../../api/client";
+import { login, requestPasswordReset } from "../../api/auth";
+import { dashboardForRole, normalizeUserProfile } from "../../api/submissions";
 import backgroundImage from "../../assets/images/dyp.jpeg";
 import iqacLogo from "../../assets/images/IQAS.png";
 import universityLogo from "../../assets/images/image.png";
 
 const normalizeEmail = (value) => value.trim().toLowerCase();
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-
-const LOGIN_ACCOUNTS = {
-  "director@dypiu.ac.in": {
-    password: "Director@123",
-    name: "Director",
-    designation: "Director",
-    school: "School of Computer Science & Applications",
-    role: "director",
-    dashboard: "/director/dashboard",
-  },
-  "administrative@dypiu.ac.in": {
-    password: "Admin@123",
-    name: "Administrative User",
-    designation: "Registrar",
-    school: "Administrative Office",
-    role: "administrative",
-    dashboard: "/administrative/dashboard",
-  },
-  "vc@dypiu.ac.in": {
-    password: "VC@123",
-    name: "Vice Chancellor",
-    designation: "Vice Chancellor",
-    school: "D Y Patil International University",
-    role: "vice-chancellor",
-    dashboard: "/vice-chancellor/dashboard",
-  },
-  "iqac@dypiu.ac.in": {
-    password: "IQAC@123",
-    name: "IQAC Director",
-    designation: "IQAC Director",
-    school: "D Y Patil International University",
-    role: "iqac",
-    dashboard: "/iqac/dashboard",
-  },
-};
 
 export default function Login() {
   const navigate = useNavigate();
@@ -70,34 +38,38 @@ export default function Login() {
       return;
     }
 
-    const account = LOGIN_ACCOUNTS[email];
-    if (!account || account.password !== pw) {
-      setError("Invalid email address or password.");
-      setMessage("");
-      return;
-    }
-
     setLoading(true);
     setError("");
     setMessage("");
 
-    window.setTimeout(() => {
-      sessionStorage.setItem("email", email);
-      sessionStorage.setItem("username", email);
-      sessionStorage.setItem("name", account.name);
-      sessionStorage.setItem("designation", account.designation);
-      sessionStorage.setItem("school", account.school);
-      sessionStorage.setItem("role", account.role);
+    try {
+      const { data } = await login(email, pw);
+      const profile = normalizeUserProfile(data);
+
+      if (!profile.token || !profile.role) {
+        throw new Error("Login response is missing token or role.");
+      }
+
+      sessionStorage.setItem("token", profile.token);
+      sessionStorage.setItem("email", profile.email || email);
+      sessionStorage.setItem("username", profile.email || email);
+      sessionStorage.setItem("name", profile.name);
+      sessionStorage.setItem("designation", profile.designation);
+      sessionStorage.setItem("school", profile.school);
+      sessionStorage.setItem("role", profile.role);
+      navigate(dashboardForRole(profile.role), { replace: true });
+    } catch (loginError) {
+      setError(getApiErrorMessage(loginError, "Invalid email address or password."));
+    } finally {
       setLoading(false);
-      navigate(account.dashboard, { replace: true });
-    }, 400);
+    }
   };
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") handleLogin();
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     const email = normalizeEmail(username);
 
     if (!email) {
@@ -115,10 +87,14 @@ export default function Login() {
     setError("");
     setMessage("");
 
-    window.setTimeout(() => {
+    try {
+      const { data } = await requestPasswordReset(email);
+      setMessage(data?.message || "Password reset link sent. Please check your email.");
+    } catch (resetError) {
+      setError(getApiErrorMessage(resetError, "Could not send password reset link."));
+    } finally {
       setResetLoading(false);
-      setMessage("Password reset link request captured. Email integration will be connected later.");
-    }, 500);
+    }
   };
 
   return (

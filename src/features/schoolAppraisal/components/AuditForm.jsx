@@ -1,11 +1,11 @@
 //contains all the schema for academic audit 2025-26 form
 import { useEffect, useMemo, useState } from "react";
+import { getApiErrorMessage } from "../../../api/client";
+import { buildSubmissionPayload, fetchMyDraft, normalizeDraft, saveDraft, submitDraft, uploadAttachment } from "../../../api/submissions";
 import universityLogo from "../../../assets/images/image.png";
 import AuditReportPanel from "./AuditReportPanel";
 import AuditSection from "./AuditSection";
 import { columnsWithSerial, serialColumnFor } from "./tableHelpers";
-
-const draftKeyFor = (schemaId) => `dypiu-school-appraisal:${schemaId}:draft`;
 
 const emptyRowFor = (columns) =>
   columnsWithSerial(columns).reduce((row, column) => {
@@ -62,28 +62,18 @@ function buildInitialTables(schema) {
 }
 
 export default function AuditForm({ schema, activeSectionId, reportMode, onReportModeChange, onSectionChange }) {
+  const auditType = schema.id.includes("administrative") ? "administrative" : "academic";
   const initialValues = useMemo(() => buildInitialValues(schema), [schema]);
   const initialTables = useMemo(() => buildInitialTables(schema), [schema]);
-  const [values, setValues] = useState(() => {
-    const saved = window.localStorage.getItem(draftKeyFor(schema.id));
-    if (!saved) return initialValues;
-    try {
-      return { ...initialValues, ...JSON.parse(saved).values };
-    } catch {
-      return initialValues;
-    }
-  });
-  const [tables, setTables] = useState(() => {
-    const saved = window.localStorage.getItem(draftKeyFor(schema.id));
-    if (!saved) return initialTables;
-    try {
-      return { ...initialTables, ...JSON.parse(saved).tables };
-    } catch {
-      return initialTables;
-    }
-  });
+  const [values, setValues] = useState(initialValues);
+  const [tables, setTables] = useState(initialTables);
+  const [attachments, setAttachments] = useState([]);
   const [status, setStatus] = useState("");
   const [submitStatus, setSubmitStatus] = useState("");
+  const [loadingDraft, setLoadingDraft] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
   const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
   const activeSectionIndex = Math.max(0, schema.sections.findIndex((section) => section.id === activeSectionId));
   const progress = activeSectionId === "summary" ? 100 : Math.round(((activeSectionIndex + 1) / schema.sections.length) * 100);
@@ -98,6 +88,36 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
 
     return () => window.clearTimeout(timer);
   }, [printReportAfterRender, reportMode]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadDraft = async () => {
+      setLoadingDraft(true);
+      setStatus("");
+
+      try {
+        const { data } = await fetchMyDraft(auditType);
+        const draft = normalizeDraft(data, initialValues, initialTables);
+
+        if (!isActive) return;
+        setValues(draft.values);
+        setTables(draft.tables);
+        setAttachments(draft.attachments);
+        setHasExistingSubmission(draft.exists);
+      } catch (error) {
+        if (isActive) setStatus(getApiErrorMessage(error, "Could not load your draft from the server."));
+      } finally {
+        if (isActive) setLoadingDraft(false);
+      }
+    };
+
+    loadDraft();
+
+    return () => {
+      isActive = false;
+    };
+  }, [auditType, initialTables, initialValues]);
 
   const handleFieldChange = (fieldId, value) => {
     setValues((current) => ({ ...current, [fieldId]: value }));
@@ -129,29 +149,51 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
     });
   };
 
-  const handleSaveDraft = () => {
-    window.localStorage.setItem(draftKeyFor(schema.id), JSON.stringify({ values, tables }));
-    setStatus("Draft saved in this browser.");
+  const currentPayload = () => buildSubmissionPayload({ auditType, values, tables, attachments });
+
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    setStatus("");
+
+    try {
+      await saveDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
+      setStatus("Draft saved successfully.");
+    } catch (error) {
+      setStatus(getApiErrorMessage(error, "Could not save draft."));
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
-  const handleSaveAndNext = () => {
-    window.localStorage.setItem(draftKeyFor(schema.id), JSON.stringify({ values, tables }));
-    setStatus("Draft saved in this browser.");
+  const handleSaveAndNext = async () => {
+    setSavingDraft(true);
+    setStatus("");
 
-    const sectionIds = [...schema.sections.map((section) => section.id), "summary"];
-    const currentIndex = sectionIds.indexOf(activeSectionId);
-    const nextSectionId = sectionIds[Math.min(currentIndex + 1, sectionIds.length - 1)];
+    try {
+      await saveDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
+      setStatus("Draft saved successfully.");
 
-    if (nextSectionId && nextSectionId !== activeSectionId) {
-      onSectionChange?.(nextSectionId);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const sectionIds = [...schema.sections.map((section) => section.id), "summary"];
+      const currentIndex = sectionIds.indexOf(activeSectionId);
+      const nextSectionId = sectionIds[Math.min(currentIndex + 1, sectionIds.length - 1)];
+
+      if (nextSectionId && nextSectionId !== activeSectionId) {
+        onSectionChange?.(nextSectionId);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch (error) {
+      setStatus(getApiErrorMessage(error, "Could not save draft."));
+    } finally {
+      setSavingDraft(false);
     }
   };
 
   const handleClear = () => {
-    window.localStorage.removeItem(draftKeyFor(schema.id));
     setValues(initialValues);
     setTables(initialTables);
+    setAttachments([]);
     setStatus("Form cleared.");
   };
 
@@ -160,9 +202,19 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
     setPrintReportAfterRender(true);
   };
 
-  const handleSubmit = () => {
-    window.localStorage.setItem(draftKeyFor(schema.id), JSON.stringify({ values, tables, submittedAt: new Date().toISOString() }));
-    setSubmitStatus("Academic Audit submitted locally. Backend submission will be connected later.");
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitStatus("");
+
+    try {
+      await submitDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
+      setSubmitStatus("Academic Audit submitted successfully.");
+    } catch (error) {
+      setSubmitStatus(getApiErrorMessage(error, "Could not submit Academic Audit."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (reportMode) {
@@ -197,8 +249,8 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
           <button type="button" className="btn btn-secondary" onClick={handleClear}>
             Clear
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleSaveDraft}>
-            Save Draft
+          <button type="button" className="btn btn-primary" onClick={handleSaveDraft} disabled={savingDraft || loadingDraft}>
+            {savingDraft ? "Saving..." : "Save Draft"}
           </button>
         </div>
         <div className="audit-form__progress" style={styles.progressTrack}>
@@ -207,6 +259,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
       </header>
 
       {status && <div style={styles.status}>{status}</div>}
+      {loadingDraft && <div style={styles.status}>Loading draft from server...</div>}
 
       <div style={styles.sections}>
         {activeSectionId === "summary" ? (
@@ -217,6 +270,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
             submitStatus={submitStatus}
             onGenerateReport={handleGenerateReport}
             onSubmit={handleSubmit}
+            submitting={submitting}
           />
         ) : (
           schema.sections
@@ -231,6 +285,11 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
                 onTableChange={handleTableChange}
                 onAddRow={handleAddRow}
                 onDeleteLastRow={handleDeleteLastRow}
+                onUploadAttachment={async (file) => {
+                  const uploaded = await uploadAttachment(file);
+                  setAttachments((current) => [...current, uploaded]);
+                  return uploaded;
+                }}
               />
             ))
         )}
@@ -238,8 +297,8 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
 
       {activeSectionId !== "summary" && (
         <div style={styles.sectionFooter}>
-          <button type="button" className="btn btn-primary" onClick={handleSaveAndNext}>
-            Save & Next
+          <button type="button" className="btn btn-primary" onClick={handleSaveAndNext} disabled={savingDraft || loadingDraft}>
+            {savingDraft ? "Saving..." : "Save & Next"}
           </button>
         </div>
       )}
@@ -247,7 +306,7 @@ export default function AuditForm({ schema, activeSectionId, reportMode, onRepor
   );
 }
 
-function SummaryPanel({ schema, values, tables, submitStatus, onGenerateReport, onSubmit }) {
+function SummaryPanel({ schema, values, tables, submitStatus, onGenerateReport, onSubmit, submitting }) {
   const tableCount = Object.keys(tables).length;
   const rowCount = Object.values(tables).reduce((count, rows) => count + rows.length, 0);
   const filledFields = Object.values(values).filter((value) => String(value || "").trim()).length;
@@ -277,8 +336,8 @@ function SummaryPanel({ schema, values, tables, submitStatus, onGenerateReport, 
         <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>
           Generate Report
         </button>
-        <button type="button" className="btn btn-primary" onClick={onSubmit}>
-          Submit
+        <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={submitting}>
+          {submitting ? "Submitting..." : "Submit"}
         </button>
       </div>
 

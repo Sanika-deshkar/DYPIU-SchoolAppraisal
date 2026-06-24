@@ -1,14 +1,14 @@
 //main dashboard for administrative audit 2025-26 form, contains sidebar, header, summary metrics, and module panel with fields and tables
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getApiErrorMessage } from "../../../api/client";
+import { buildSubmissionPayload, fetchMyDraft, normalizeDraft, saveDraft, submitDraft, uploadAttachment } from "../../../api/submissions";
 import universityLogo from "../../../assets/images/image.png";
 import AuditTable from "../components/AuditTable";
 import { columnsWithSerial, serialColumnFor } from "../components/tableHelpers";
 import AdministrativeReportPanel from "./AdministrativeReportPanel";
 import AppSidebar from "../components/AppSidebar";
 import { administrativeAuditMeta, administrativeAuditModules, administrativeSummaryModule } from "./administrativeAuditConfig";
-
-const STORAGE_KEY = "dypiu-school-appraisal:administrative-audit-2025-26";
 
 const emptyRowFor = (columns, index) => {
   const row = columnsWithSerial(columns).reduce((value, column) => {
@@ -59,7 +59,7 @@ const buildInitialData = () => {
   fields.universityName = administrativeAuditMeta.university;
   fields.address = administrativeAuditMeta.address;
 
-  return { fields, tables, lastSavedAt: "" };
+  return { fields, tables, attachments: [], lastSavedAt: "" };
 };
 
 const getUserProfile = () => ({
@@ -76,21 +76,12 @@ export default function AdministrativeAuditDashboard() {
   const [printReportAfterRender, setPrintReportAfterRender] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [submitStatus, setSubmitStatus] = useState("");
-  const [data, setData] = useState(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return buildInitialData();
-    try {
-      const parsed = JSON.parse(saved);
-      const initial = buildInitialData();
-      return {
-        fields: { ...initial.fields, ...(parsed.fields || {}) },
-        tables: { ...initial.tables, ...(parsed.tables || {}) },
-        lastSavedAt: parsed.lastSavedAt || "",
-      };
-    } catch {
-      return buildInitialData();
-    }
-  });
+  const [status, setStatus] = useState("");
+  const [loadingDraft, setLoadingDraft] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
+  const [data, setData] = useState(buildInitialData);
 
   const activeModule = useMemo(
     () => administrativeAuditModules.find((module) => module.id === activeModuleId) || administrativeSummaryModule,
@@ -100,12 +91,38 @@ export default function AdministrativeAuditDashboard() {
   const isSummary = activeModuleId === administrativeSummaryModule.id;
 
   useEffect(() => {
-    const payload = {
-      ...data,
-      lastSavedAt: data.lastSavedAt || new Date().toISOString(),
+    let isActive = true;
+
+    const loadDraft = async () => {
+      setLoadingDraft(true);
+      setStatus("");
+
+      try {
+        const initial = buildInitialData();
+        const { data: draftResponse } = await fetchMyDraft("administrative");
+        const draft = normalizeDraft(draftResponse, initial.fields, initial.tables);
+
+        if (!isActive) return;
+        setData({
+          fields: draft.values,
+          tables: draft.tables,
+          attachments: draft.attachments,
+          lastSavedAt: new Date().toISOString(),
+        });
+        setHasExistingSubmission(draft.exists);
+      } catch (error) {
+        if (isActive) setStatus(getApiErrorMessage(error, "Could not load your draft from the server."));
+      } finally {
+        if (isActive) setLoadingDraft(false);
+      }
     };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [data]);
+
+    loadDraft();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!reportMode || !printReportAfterRender) return undefined;
@@ -165,21 +182,40 @@ export default function AdministrativeAuditDashboard() {
   const resetDraft = () => {
     const nextData = buildInitialData();
     setData(nextData);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    setStatus("Form cleared.");
   };
 
-  const saveAndGoNext = () => {
+  const currentPayload = () =>
+    buildSubmissionPayload({
+      auditType: "administrative",
+      values: data.fields,
+      tables: data.tables,
+      attachments: data.attachments,
+    });
+
+  const saveAndGoNext = async () => {
+    setSavingDraft(true);
+    setStatus("");
     const nextData = { ...data, lastSavedAt: new Date().toISOString() };
-    setData(nextData);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
 
-    const moduleIds = [...administrativeAuditModules.map((module) => module.id), administrativeSummaryModule.id];
-    const currentIndex = moduleIds.indexOf(activeModuleId);
-    const nextModuleId = moduleIds[Math.min(currentIndex + 1, moduleIds.length - 1)];
+    try {
+      setData(nextData);
+      await saveDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
+      setStatus("Draft saved successfully.");
 
-    if (nextModuleId && nextModuleId !== activeModuleId) {
-      setActiveModuleId(nextModuleId);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const moduleIds = [...administrativeAuditModules.map((module) => module.id), administrativeSummaryModule.id];
+      const currentIndex = moduleIds.indexOf(activeModuleId);
+      const nextModuleId = moduleIds[Math.min(currentIndex + 1, moduleIds.length - 1)];
+
+      if (nextModuleId && nextModuleId !== activeModuleId) {
+        setActiveModuleId(nextModuleId);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch (error) {
+      setStatus(getApiErrorMessage(error, "Could not save draft."));
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -188,9 +224,20 @@ export default function AdministrativeAuditDashboard() {
     navigate("/login", { replace: true });
   };
 
-  const handleSubmit = () => {
-    setData((current) => ({ ...current, submittedAt: new Date().toISOString(), lastSavedAt: new Date().toISOString() }));
-    setSubmitStatus("Administrative Audit submitted locally. Backend submission will be connected later.");
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitStatus("");
+
+    try {
+      await submitDraft(currentPayload(), { isUpdate: hasExistingSubmission });
+      setHasExistingSubmission(true);
+      setData((current) => ({ ...current, submittedAt: new Date().toISOString(), lastSavedAt: new Date().toISOString() }));
+      setSubmitStatus("Administrative Audit submitted successfully.");
+    } catch (error) {
+      setSubmitStatus(getApiErrorMessage(error, "Could not submit Administrative Audit."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (reportMode) {
@@ -245,11 +292,14 @@ export default function AdministrativeAuditDashboard() {
               </div>
             </div>
             <div className="admin-audit-actions" style={styles.headerActions}>
-              <button type="button" className="btn btn-secondary" onClick={resetDraft}>
+              <button type="button" className="btn btn-secondary" onClick={resetDraft} disabled={loadingDraft || savingDraft}>
                 Reset
               </button>
             </div>
           </header>
+
+          {status && <div style={styles.submitStatus}>{status}</div>}
+          {loadingDraft && <div style={styles.submitStatus}>Loading draft from server...</div>}
 
           <section className="admin-form-panel audit-section-card" style={styles.modulePanel}>
             <div style={styles.moduleHead}>
@@ -259,7 +309,7 @@ export default function AdministrativeAuditDashboard() {
                 </h2>
                 {activeModule.note && <p style={styles.moduleNote}>{activeModule.note}</p>}
               </div>
-              <span style={styles.badge}>Local draft</span>
+              <span style={styles.badge}>Server draft</span>
             </div>
 
             {isSummary ? (
@@ -272,6 +322,7 @@ export default function AdministrativeAuditDashboard() {
                   setPrintReportAfterRender(true);
                 }}
                 onSubmit={handleSubmit}
+                submitting={submitting}
               />
             ) : (
               moduleBlocksFor(activeModule).map((block, index) => {
@@ -297,6 +348,15 @@ export default function AdministrativeAuditDashboard() {
                   onCellChange={setCellValue}
                   onAddRow={addRow}
                   onDeleteLastRow={deleteLastRow}
+                  onUploadAttachment={async (file) => {
+                    const uploaded = await uploadAttachment(file);
+                    setData((current) => ({
+                      ...current,
+                      attachments: [...(current.attachments || []), uploaded],
+                      lastSavedAt: new Date().toISOString(),
+                    }));
+                    return uploaded;
+                  }}
                 />
                   ))}
                 </div>
@@ -306,8 +366,8 @@ export default function AdministrativeAuditDashboard() {
 
             {!isSummary && (
               <div style={styles.sectionFooter}>
-                <button type="button" className="btn btn-primary" onClick={saveAndGoNext}>
-                  Save & Next
+                <button type="button" className="btn btn-primary" onClick={saveAndGoNext} disabled={savingDraft || loadingDraft}>
+                  {savingDraft ? "Saving..." : "Save & Next"}
                 </button>
               </div>
             )}
@@ -414,7 +474,7 @@ function FieldGrid({ fields, data, onChange }) {
   );
 }
 
-function SummaryPanel({ modules, data, submitStatus, onGenerateReport, onSubmit }) {
+function SummaryPanel({ modules, data, submitStatus, onGenerateReport, onSubmit, submitting }) {
   const tableCount = modules.reduce((count, module) => count + moduleTablesFor(module).length, 0);
   const rowCount = Object.values(data.tables).reduce((count, rows) => count + rows.length, 0);
   const filledFields = Object.values(data.fields).filter((value) => String(value || "").trim()).length;
@@ -444,8 +504,8 @@ function SummaryPanel({ modules, data, submitStatus, onGenerateReport, onSubmit 
         <button type="button" className="btn btn-secondary" onClick={onGenerateReport}>
           Generate Report
         </button>
-        <button type="button" className="btn btn-primary" onClick={onSubmit}>
-          Submit
+        <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={submitting}>
+          {submitting ? "Submitting..." : "Submit"}
         </button>
       </div>
 

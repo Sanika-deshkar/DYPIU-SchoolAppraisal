@@ -1,16 +1,57 @@
-# React + Vite
+# School Appraisal Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Local Development
 
-Currently, two official plugins are available:
+Create a local environment file:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```powershell
+Copy-Item .env.example .env
+```
 
-## React Compiler
+Install dependencies and start Vite:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```powershell
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+## Deploy To Google Cloud Run
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The included `Dockerfile` builds the Vite application and serves it with Nginx. It supports React route refreshes, provides `/health`, and listens on the port supplied by Cloud Run.
+
+The backend URL is injected when the container starts, so it can be changed through a Cloud Run environment variable without rebuilding the frontend.
+
+Authenticate and select your Google Cloud project:
+
+```powershell
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+Enable the required services:
+
+```powershell
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+```
+
+Deploy directly from the project root:
+
+```powershell
+gcloud run deploy school-appraisal-frontend `
+  --source . `
+  --region asia-south1 `
+  --allow-unauthenticated `
+  --set-env-vars VITE_API_BASE_URL=https://schoolappraisal-backend-919405994318.asia-south1.run.app
+```
+
+Cloud Run prints the public frontend URL when deployment completes.
+
+The Spring Boot backend must allow CORS requests from the final frontend URL. Add the exact Cloud Run frontend origin, including `https://` and without a trailing slash, to the backend's allowed origins.
+
+To change the backend URL later:
+
+```powershell
+gcloud run services update school-appraisal-frontend `
+  --region asia-south1 `
+  --set-env-vars VITE_API_BASE_URL=https://YOUR-BACKEND-URL
+```
